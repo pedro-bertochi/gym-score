@@ -1,0 +1,538 @@
+basePath: /
+definitions:
+  models.AceitarAmizadeRequest:
+    properties:
+      id_amigo:
+        type: integer
+      id_usuario:
+        type: integer
+    required:
+    - id_amigo
+    - id_usuario
+    type: object
+  models.AceitarDesafioRequest:
+    properties:
+      id_desafio:
+        type: integer
+      id_usuario:
+        type: integer
+    required:
+    - id_desafio
+    - id_usuario
+    type: object
+  models.AdicionarAmigoRequest:
+    properties:
+      id_amigo:
+        type: integer
+      id_usuario:
+        type: integer
+    required:
+    - id_amigo
+    - id_usuario
+    type: object
+  models.CriarDesafioRequest:
+    properties:
+      descricao:
+        type: string
+      id_criador:
+        type: integer
+      local:
+        type: string
+      titulo:
+        maxLength: 200
+        minLength: 3
+        type: string
+      valor:
+        type: number
+    required:
+    - id_criador
+    - titulo
+    - valor
+    type: object
+  models.CriarUsuarioRequest:
+    properties:
+      cpf:
+        description: 'Formato: 000.000.000-00'
+        type: string
+      data_nascimento:
+        type: string
+      email:
+        type: string
+      genero:
+        enum:
+        - M
+        - F
+        - O
+        type: string
+      nome:
+        maxLength: 100
+        minLength: 2
+        type: string
+      senha:
+        minLength: 6
+        type: string
+      sobrenome:
+        maxLength: 100
+        minLength: 2
+        type: string
+    required:
+    - cpf
+    - data_nascimento
+    - email
+    - genero
+    - nome
+    - senha
+    - sobrenome
+    type: object
+  models.EncerrarDesafioRequest:
+    properties:
+      id_desafio:
+        type: integer
+      id_perdedor:
+        type: integer
+      id_vencedor:
+        type: integer
+    required:
+    - id_desafio
+    - id_perdedor
+    - id_vencedor
+    type: object
+  models.IniciarDesafioRequest:
+    properties:
+      id_desafio:
+        type: integer
+    required:
+    - id_desafio
+    type: object
+  models.LoginRequest:
+    properties:
+      email:
+        type: string
+      senha:
+        type: string
+    required:
+    - email
+    - senha
+    type: object
+  models.PIXRequest:
+    properties:
+      cpf:
+        example: 123.456.789-00
+        type: string
+      id_usuario:
+        example: 1
+        type: integer
+      valor:
+        example: 50
+        type: number
+    type: object
+  models.PIXResponse:
+    properties:
+      novo_saldo:
+        type: number
+      payload:
+        type: string
+      qrcode_base64:
+        type: string
+    type: object
+  models.RemoverAmigoRequest:
+    properties:
+      id_amigo:
+        type: integer
+      id_usuario:
+        type: integer
+    required:
+    - id_amigo
+    - id_usuario
+    type: object
+  utils.APIResponse:
+    properties:
+      data: {}
+      error:
+        type: string
+      message:
+        type: string
+      success:
+        type: boolean
+    type: object
+host: localhost:3000
+info:
+  contact:
+    email: support@swagger.io
+    name: API Support
+    url: http://www.swagger.io/support
+  description: API para o sistema GymScore de desafios e treinos.
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  termsOfService: http://swagger.io/terms/
+  title: GymScore API
+  version: "1.0"
+paths:
+  /api/amigos/{id}:
+    get:
+      description: Retorna a lista de amigos aceitos de um usuário
+      parameters:
+      - description: ID do usuário
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Listar amigos de um usuário
+      tags:
+      - amigos
+  /api/amigos/aceitar:
+    post:
+      consumes:
+      - application/json
+      description: Aceita uma solicitação de amizade pendente
+      parameters:
+      - description: IDs dos usuários
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.AceitarAmizadeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Aceitar solicitação de amizade
+      tags:
+      - amigos
+  /api/amigos/adicionar:
+    post:
+      consumes:
+      - application/json
+      description: Envia uma solicitação de amizade para outro usuário
+      parameters:
+      - description: IDs dos usuários
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.AdicionarAmigoRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Adicionar amigo
+      tags:
+      - amigos
+  /api/amigos/remover:
+    post:
+      consumes:
+      - application/json
+      description: Remove o vínculo de amizade entre dois usuários
+      parameters:
+      - description: IDs dos usuários
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.RemoverAmigoRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Remover amigo
+      tags:
+      - amigos
+  /api/desafios:
+    post:
+      consumes:
+      - application/json
+      description: Cria um novo desafio após validar saldo do criador
+      parameters:
+      - description: Dados do desafio
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.CriarDesafioRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Criar novo desafio
+      tags:
+      - desafios
+  /api/desafios/{id}:
+    get:
+      description: Retorna os desafios ativos (abertos e em andamento) de um usuário
+        específico
+      parameters:
+      - description: ID do usuário
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Listar desafios de um usuário
+      tags:
+      - desafios
+  /api/desafios/aceitar_desafio:
+    post:
+      consumes:
+      - application/json
+      description: Registra um usuário como participante de um desafio aberto
+      parameters:
+      - description: IDs do desafio e do usuário
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.AceitarDesafioRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Aceitar um desafio
+      tags:
+      - desafios
+  /api/desafios/encerrar:
+    post:
+      consumes:
+      - application/json
+      description: Finaliza o desafio, atualiza saldos do vencedor e perdedor
+      parameters:
+      - description: IDs do desafio, vencedor e perdedor
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.EncerrarDesafioRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Encerrar um desafio
+      tags:
+      - desafios
+  /api/desafios/iniciar:
+    post:
+      consumes:
+      - application/json
+      description: Muda o status do desafio para "em andamento"
+      parameters:
+      - description: ID do desafio
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.IniciarDesafioRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Iniciar um desafio
+      tags:
+      - desafios
+  /api/desafios/view:
+    get:
+      description: Retorna todos os desafios cadastrados no sistema
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Listar todos os desafios
+      tags:
+      - desafios
+  /api/login:
+    post:
+      consumes:
+      - application/json
+      description: Valida credenciais e retorna token JWT
+      parameters:
+      - description: Credenciais de acesso
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Autenticar usuário
+      tags:
+      - usuarios
+  /api/pagamento/pix:
+    post:
+      consumes:
+      - application/json
+      description: Gera um QR Code para depósito. O valor é creditado automaticamente
+        no saldo do usuário após a geração. Requer validação de CPF.
+      parameters:
+      - description: Dados do Depósito
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.PIXRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.PIXResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Depositar saldo via PIX
+      tags:
+      - Pagamento
+  /api/usuarios:
+    get:
+      description: Retorna todos os usuários cadastrados
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Listar usuários
+      tags:
+      - usuarios
+    post:
+      consumes:
+      - application/json
+      description: Registra um novo usuário no sistema após validação de e-mail e
+        dados
+      parameters:
+      - description: Dados do usuário
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.CriarUsuarioRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Criar novo usuário
+      tags:
+      - usuarios
+  /api/usuarios/{id}:
+    get:
+      description: Retorna os dados públicos de um usuário pelo ID
+      parameters:
+      - description: ID do usuário
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Buscar perfil do usuário
+      tags:
+      - usuarios
+securityDefinitions:
+  BearerAuth:
+    description: 'Digite "Bearer " seguido do seu token JWT. Exemplo: "Bearer eyJhbGciOiJIUzI1..."'
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"
