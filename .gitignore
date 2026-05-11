@@ -1,0 +1,34 @@
+# Binários compilados
+/bin/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Arquivo de ambiente (nunca versionar o .env real)
+.env
+
+# Diretório de dependências do Go (gerenciado pelo go mod)
+vendor/
+
+# Arquivos de teste
+*.test
+*.out
+
+# Logs
+*.log
+
+# Arquivos de sistema
+.DS_Store
+Thumbs.db
+
+# IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Air build
+.air/
+/tmp/
