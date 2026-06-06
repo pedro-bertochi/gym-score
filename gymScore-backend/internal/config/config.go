@@ -13,19 +13,21 @@ import (
 
 // Config armazena todas as configurações da aplicação carregadas do .env
 type Config struct {
-	AppPort    string
-	DBHost     string
-	DBPort     string
-	DBUser     string
-	DBPassword string
-	DBName     string
-	JWTSecret  string
-	AppEnv     string
+	AppPort      string
+	DBHost       string
+	DBPort       string
+	DBUser       string
+	DBPassword   string
+	DBName       string
+	JWTSecret    string
+	AppEnv       string
+	FrontendPath string
 	PIXChave     string
 	PIXNome      string
 	PIXCidade    string
-	AsaasAPIKey  string
-	AsaasBaseURL string
+	AsaasAPIKey       string
+	AsaasBaseURL      string
+	AsaasWebhookToken string
 }
 
 // Load carrega as variáveis de ambiente do arquivo .env
@@ -35,20 +37,22 @@ func Load() *Config {
 	}
 
 	return &Config{
-		AppPort:    getEnv("APP_PORT", "3000"),
-		DBHost:     getEnv("DB_HOST", "localhost"),
-		DBPort:     getEnv("DB_PORT", "3306"),
-		DBUser:     getEnv("DB_USER", "root"),
-		DBPassword: getEnv("DB_PASSWORD", ""),
-		DBName:     getEnv("DB_NAME", "gymscore"),
-			JWTSecret:  getEnv("JWT_SECRET", "gymscore_secret_key_change_in_production"),
-			AppEnv:     getEnv("APP_ENV", "development"),
-			PIXChave:     getEnv("PIX_CHAVE", "sua-chave-pix@email.com"),
-			PIXNome:      getEnv("PIX_NOME_RECEBEDOR", "GYMSCORE SISTEMA"),
-			PIXCidade:    getEnv("PIX_CIDADE_RECEBEDOR", "SAO PAULO"),
-			AsaasAPIKey:  getEnv("ASAAS_API_KEY", ""),
-			AsaasBaseURL: getEnv("ASAAS_BASE_URL", "https://sandbox.asaas.com/api"),
-		}
+		AppPort:      getEnv("APP_PORT", "3000"),
+		DBHost:       getEnv("DB_HOST", "localhost"),
+		DBPort:       getEnv("DB_PORT", "3306"),
+		DBUser:       getEnv("DB_USER", "root"),
+		DBPassword:   getEnv("DB_PASSWORD", ""),
+		DBName:       getEnv("DB_NAME", "gymscore"),
+		JWTSecret:    getEnv("JWT_SECRET", "gymscore_secret_key_change_in_production"),
+		AppEnv:       getEnv("APP_ENV", "development"),
+		FrontendPath: getEnv("FRONTEND_PATH", "../gymScore-frontend/public"),
+		PIXChave:     getEnv("PIX_CHAVE", "sua-chave-pix@email.com"),
+		PIXNome:      getEnv("PIX_NOME_RECEBEDOR", "GYMSCORE SISTEMA"),
+		PIXCidade:    getEnv("PIX_CIDADE_RECEBEDOR", "SAO PAULO"),
+		AsaasAPIKey:      getEnv("ASAAS_API_KEY", ""),
+		AsaasBaseURL:     getEnv("ASAAS_BASE_URL", "https://api.asaas.com"),
+		AsaasWebhookToken: getEnv("ASAAS_WEBHOOK_TOKEN", ""),
+	}
 	}
 
 // ConnectDB inicializa a conexão com o banco de dados MySQL via GORM

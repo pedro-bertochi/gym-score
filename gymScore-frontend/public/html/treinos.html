@@ -4,139 +4,201 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Treinos - GymScore</title>
+    <link rel="stylesheet" href="../css/base.css">
     <link rel="stylesheet" href="../css/treinos.css">
 </head>
 <body>
+<div class="treinos-page">
+    <h1>💪 Exercícios por Grupo Muscular</h1>
 
-<h1>Exercícios por Grupo Muscular</h1>
-
-<!-- Container para os quadrados de treino -->
-<div class="exercise-container">
-    <!-- Treino de Peito -->
-    <div class="exercise-section">
-        <h2>Peito</h2>
-        <ul>
-            <li>Supino Reto</li>
-            <li>Supino Inclinado</li>
-            <li>Supino Declinado</li>
-            <li>Crucifixo com Halteres</li>
-            <li>Crucifixo Máquina</li>
-            <li>Cross Over</li>
-            <li>Flexão de Braço</li>
-            <li>Supino Máquina</li>
-        </ul>
+    <!-- Barra de busca -->
+    <div class="treinos-search-wrap">
+        <input
+            type="text"
+            id="searchExercicio"
+            class="gs-input treinos-search"
+            placeholder="Buscar exercício..."
+            autocomplete="off"
+            aria-label="Buscar exercício"
+            oninput="filtrarExercicios()"
+        >
     </div>
 
-    <!-- Treino de Ombro -->
-    <div class="exercise-section">
-        <h2>Ombro</h2>
-        <ul>
-            <li>Desenvolvimento com Halteres</li>
-            <li>Desenvolvimento Máquina</li>
-            <li>Elevação Lateral</li>
-            <li>Elevação Frontal</li>
-            <li>Elevação Posterior</li>
-            <li>Encolhimento de Ombros</li>
-            <li>Face Pull</li>
-        </ul>
+    <!-- Chips de grupo muscular -->
+    <div class="chips-row" role="navigation" aria-label="Filtrar por grupo muscular">
+        <button class="chip" onclick="scrollToSecao('peito')"     aria-label="Ir para Peito">Peito</button>
+        <button class="chip" onclick="scrollToSecao('ombro')"     aria-label="Ir para Ombro">Ombro</button>
+        <button class="chip" onclick="scrollToSecao('costas')"    aria-label="Ir para Costas">Costas</button>
+        <button class="chip" onclick="scrollToSecao('abdominal')" aria-label="Ir para Abdominal">Abdominal</button>
+        <button class="chip" onclick="scrollToSecao('triceps')"   aria-label="Ir para Tríceps">Tríceps</button>
+        <button class="chip" onclick="scrollToSecao('biceps')"    aria-label="Ir para Bíceps">Bíceps</button>
+        <button class="chip" onclick="scrollToSecao('pernas')"    aria-label="Ir para Pernas">Pernas</button>
+        <button class="chip" onclick="scrollToSecao('antebraco')" aria-label="Ir para Antebraço">Antebraço</button>
     </div>
 
-    <!-- Treino de Dorsal -->
-    <div class="exercise-section">
-        <h2>Dorsal</h2>
-        <ul>
-            <li>Pulldown</li>
-            <li>Remada Curvada</li>
-            <li>Remada Sentada</li>
-            <li>Barra Fixa</li>
-            <li>Remada Unilateral</li>
-            <li>Levantamento Terra</li>
-            <li>Lombar máquina</li>
-        </ul>
-    </div>
+    <div id="semResultados" class="no-results" hidden>Nenhum exercício encontrado.</div>
 
-    <!-- Treino de Costas -->
-    <div class="exercise-section">
-        <h2>Costas</h2>
-        <ul>
-            <li>Levantamento Terra</li>
-            <li>Remada Máquina</li>
-            <li>Remada Curvada com Barra</li>
-            <li>Remada com halteres</li>
-            <li>Puxada com barra supinada</li>
-            <li>Puxada triângulo</li>
-            <li>Puxada polia romana</li>
-        </ul>
-    </div>
-
-    <!-- Treino de Abdominal -->
-    <div class="exercise-section">
-        <h2>Abdominal</h2>
-        <ul>
-            <li>Abdominal Reto</li>
-            <li>Abdominal Infra</li>
-            <li>Prancha</li>
-            <li>Abdominal Bicicleta</li>
-            <li>Elevação de Pernas</li>
-            <li>Abdominal Máquina</li>
-        </ul>
-    </div>
-
-    <!-- Treino de Tríceps -->
-    <div class="exercise-section">
-        <h2>Tríceps</h2>
-        <ul>
-            <li>Tríceps Testa</li>
-            <li>Tríceps Pulley</li>
-            <li>Tríceps Banco</li>
-            <li>Tríceps máquina</li>
-            <li>Supino Fechado</li>
-            <li>Tríceps Francês</li>
-            <li>Tríceps Cross</li>
-        </ul>
-    </div>
-
-    <!-- Treino de Bíceps -->
-    <div class="exercise-section">
-        <h2>Bíceps</h2>
-        <ul>
-            <li>Rosca Direta</li>
-            <li>Rosca Martelo</li>
-            <li>Rosca Concentrada</li>
-            <li>Rosca Scott</li>
-            <li>Bíceps Máquina</li>
-            <li>Rosca Alternada</li>
-            <li>Rosca com Barra</li>
-        </ul>
-    </div>
-
-    <!-- Treino de Pernas -->
-    <div class="exercise-section">
-        <h2>Pernas</h2>
-        <ul>
-            <li>Agachamento Livre</li>
-            <li>Leg Press</li>
-            <li>Cadeira extensora</li>
-            <li>Cadeira abdutora</li>
-            <li>Cadeira adutora</li>
-            <li>Agachamento Stiff</li>
-            <li>Gemeos máquina (panturrilha)</li>
-            <li>Cadeira flexora</li>
-        </ul>
-    </div>
-
-    <!-- Treino de Antebraço -->
-    <div class="exercise-section">
-        <h2>Antebraço</h2>
-        <ul>
-            <li>Rosca Invertida</li>
-            <li>Rosca Punho</li>
-            <li>Rosca Martelo</li>
-            <li>Flexão de Punho</li>
-            <li>Flexão de Punho Reversa</li>
-        </ul>
+    <div class="exercise-container" id="exerciseContainer">
+        <div class="exercise-section" id="sec-peito" data-section="peito">
+            <h2>🏋️ Peito</h2>
+            <ul>
+                <li>Supino Reto</li><li>Supino Inclinado</li><li>Supino Declinado</li>
+                <li>Crucifixo com Halteres</li><li>Crucifixo Máquina</li>
+                <li>Cross Over</li><li>Flexão de Braço</li><li>Supino Máquina</li>
+            </ul>
+        </div>
+        <div class="exercise-section" id="sec-ombro" data-section="ombro">
+            <h2>🔝 Ombro</h2>
+            <ul>
+                <li>Desenvolvimento com Halteres</li><li>Desenvolvimento Máquina</li>
+                <li>Elevação Lateral</li><li>Elevação Frontal</li>
+                <li>Elevação Posterior</li><li>Encolhimento de Ombros</li><li>Face Pull</li>
+            </ul>
+        </div>
+        <!-- Costas: merge dos exercícios únicos de Dorsal + Costas originais -->
+        <div class="exercise-section" id="sec-costas" data-section="costas">
+            <h2>🔙 Costas</h2>
+            <ul>
+                <li>Pulldown</li><li>Remada Curvada</li><li>Remada Sentada</li>
+                <li>Barra Fixa</li><li>Remada Unilateral</li>
+                <li>Levantamento Terra</li><li>Lombar Máquina</li>
+                <li>Remada Máquina</li><li>Remada Curvada com Barra</li>
+                <li>Remada com Halteres</li><li>Puxada Supinada</li>
+                <li>Puxada Triângulo</li><li>Puxada Polia Romana</li>
+            </ul>
+        </div>
+        <div class="exercise-section" id="sec-abdominal" data-section="abdominal">
+            <h2>⬡ Abdominal</h2>
+            <ul>
+                <li>Abdominal Reto</li><li>Abdominal Infra</li><li>Prancha</li>
+                <li>Abdominal Bicicleta</li><li>Elevação de Pernas</li><li>Abdominal Máquina</li>
+            </ul>
+        </div>
+        <div class="exercise-section" id="sec-triceps" data-section="triceps">
+            <h2>💪 Tríceps</h2>
+            <ul>
+                <li>Tríceps Testa</li><li>Tríceps Pulley</li><li>Tríceps Banco</li>
+                <li>Tríceps Máquina</li><li>Supino Fechado</li>
+                <li>Tríceps Francês</li><li>Tríceps Cross</li>
+            </ul>
+        </div>
+        <div class="exercise-section" id="sec-biceps" data-section="biceps">
+            <h2>💪 Bíceps</h2>
+            <ul>
+                <li>Rosca Direta</li><li>Rosca Martelo</li><li>Rosca Concentrada</li>
+                <li>Rosca Scott</li><li>Bíceps Máquina</li>
+                <li>Rosca Alternada</li><li>Rosca com Barra</li>
+            </ul>
+        </div>
+        <div class="exercise-section" id="sec-pernas" data-section="pernas">
+            <h2>🦵 Pernas</h2>
+            <ul>
+                <li>Agachamento Livre</li><li>Leg Press</li><li>Cadeira Extensora</li>
+                <li>Cadeira Abdutora</li><li>Cadeira Adutora</li>
+                <li>Stiff</li><li>Gêmeos Máquina</li><li>Cadeira Flexora</li>
+            </ul>
+        </div>
+        <div class="exercise-section" id="sec-antebraco" data-section="antebraco">
+            <h2>🤜 Antebraço</h2>
+            <ul>
+                <li>Rosca Invertida</li><li>Rosca Punho</li><li>Rosca Martelo</li>
+                <li>Flexão de Punho</li><li>Flexão de Punho Reversa</li>
+            </ul>
+        </div>
     </div>
 </div>
 
+<script src="../js/api.js"></script>
+<script>
+    if (!Auth.require()) throw new Error('unauthenticated');
+
+    // Busca e filtra exercícios em tempo real
+    function filtrarExercicios() {
+        var q = document.getElementById('searchExercicio').value.toLowerCase().trim();
+        var secoes = document.querySelectorAll('.exercise-section');
+        var algumVisivel = false;
+
+        secoes.forEach(function(sec) {
+            if (!q) {
+                // Sem filtro: mostra tudo e remove highlights
+                sec.hidden = false;
+                sec.querySelectorAll('li').forEach(function(li) {
+                    li.hidden = false;
+                    li.innerHTML = li.textContent;
+                });
+                algumVisivel = true;
+                return;
+            }
+
+            var items = sec.querySelectorAll('li');
+            var secaoVisivel = false;
+            items.forEach(function(li) {
+                var texto = li.textContent.toLowerCase();
+                if (texto.includes(q)) {
+                    li.hidden = false;
+                    // Highlight do termo buscado
+                    li.innerHTML = li.textContent.replace(
+                        new RegExp('(' + escRegex(q) + ')', 'gi'),
+                        '<mark>$1</mark>'
+                    );
+                    secaoVisivel = true;
+                    algumVisivel = true;
+                } else {
+                    li.hidden = true;
+                }
+            });
+            sec.hidden = !secaoVisivel;
+        });
+
+        document.getElementById('semResultados').hidden = algumVisivel;
+    }
+
+    // Scroll suave até seção pelo id de data-section
+    function scrollToSecao(id) {
+        // Limpa busca ao usar chips
+        document.getElementById('searchExercicio').value = '';
+        filtrarExercicios();
+
+        var el = document.getElementById('sec-' + id);
+        if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            el.classList.add('highlight');
+            setTimeout(function() { el.classList.remove('highlight'); }, 1200);
+        }
+    }
+
+    function escRegex(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+
+    renderBottomNav('/treinos');
+
+    // ── Exercícios clicáveis: marcar como feito hoje ─────────────────────────
+    var hoje = new Date().toDateString();
+    document.querySelectorAll('.exercise-section li').forEach(function(li) {
+        var nome = li.textContent.trim();
+        li.setAttribute('data-nome', nome);
+        li.setAttribute('role', 'button');
+        li.setAttribute('tabindex', '0');
+        li.title = 'Clique para marcar como feito';
+        li.onclick = function() {
+            var k = 'gym_feito_' + hoje + '_' + nome;
+            if (localStorage.getItem(k) === '1') {
+                localStorage.removeItem(k);
+                li.classList.remove('feito');
+                li.setAttribute('aria-pressed', 'false');
+            } else {
+                localStorage.setItem(k, '1');
+                li.classList.add('feito');
+                li.setAttribute('aria-pressed', 'true');
+            }
+        };
+        li.onkeydown = function(e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); li.click(); } };
+        if (localStorage.getItem('gym_feito_' + hoje + '_' + nome) === '1') {
+            li.classList.add('feito');
+            li.setAttribute('aria-pressed', 'true');
+        } else {
+            li.setAttribute('aria-pressed', 'false');
+        }
+    });
+</script>
 </body>
 </html>

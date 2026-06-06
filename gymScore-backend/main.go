@@ -84,7 +84,7 @@ func main() {
 	desafioCtrl := controllers.NovoDesafioController(desafioSvc)
 	amizadeCtrl := controllers.NovoAmizadeController(amizadeSvc)
 	pixCtrl := controllers.NovoPIXController(pixSvc)
-	webhookCtrl := controllers.NovoWebhookController(db, transacaoRepo, usuarioRepo)
+	webhookCtrl := controllers.NovoWebhookController(db, transacaoRepo, usuarioRepo, cfg)
 
 	// ─── Configuração do servidor Fiber ──────────────────────────────────────────
 	app := fiber.New(fiber.Config{

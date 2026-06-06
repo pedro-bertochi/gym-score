@@ -159,10 +159,10 @@ func (ctrl *DesafioController) ListarDesafios(c *fiber.Ctx) error {
 		return utils.Error(c, fiber.StatusInternalServerError, "Erro ao listar desafios: "+err.Error())
 	}
 
-	if len(desafios) == 0 {
-		return utils.Error(c, fiber.StatusNotFound, "Nenhum desafio encontrado")
+	// Lista vazia é estado válido — não retornar 404
+	if desafios == nil {
+		desafios = []models.Desafio{}
 	}
-
 	return utils.Success(c, fiber.StatusOK, "Desafios listados com sucesso", desafios)
 }
 

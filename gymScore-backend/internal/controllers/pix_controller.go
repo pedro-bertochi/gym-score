@@ -10,6 +10,7 @@ import (
 
 type PIXController interface {
 	GerarPagamento(c *fiber.Ctx) error
+	ConsultarPagamento(c *fiber.Ctx) error
 }
 
 type pixController struct {
@@ -18,6 +19,20 @@ type pixController struct {
 
 func NovoPIXController(pixService services.PIXService) PIXController {
 	return &pixController{pixService}
+}
+
+func (ctrl *pixController) ConsultarPagamento(c *fiber.Ctx) error {
+	asaasID := c.Params("asaas_id")
+	if asaasID == "" {
+		return utils.Error(c, fiber.StatusBadRequest, "ID do pagamento obrigatório")
+	}
+
+	transacao, err := ctrl.pixService.ConsultarPagamento(asaasID)
+	if err != nil {
+		return utils.Error(c, fiber.StatusNotFound, "Pagamento não encontrado")
+	}
+
+	return utils.Success(c, fiber.StatusOK, "Pagamento consultado", transacao)
 }
 
 func (ctrl *pixController) GerarPagamento(c *fiber.Ctx) error {

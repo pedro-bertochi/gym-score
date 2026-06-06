@@ -10,6 +10,7 @@ import (
 
 type PIXService interface {
 	GerarPagamento(req models.PIXRequest) (*models.PIXResponse, error)
+	ConsultarPagamento(asaasID string) (*models.Transacao, error)
 }
 
 type pixService struct {
@@ -24,6 +25,10 @@ func NovoPIXService(
 	transacaoRepo repositories.TransacaoRepository,
 ) PIXService {
 	return &pixService{asaasClient, usuarioRepo, transacaoRepo}
+}
+
+func (s *pixService) ConsultarPagamento(asaasID string) (*models.Transacao, error) {
+	return s.transacaoRepo.BuscarPorAsaasID(asaasID)
 }
 
 func (s *pixService) GerarPagamento(req models.PIXRequest) (*models.PIXResponse, error) {
