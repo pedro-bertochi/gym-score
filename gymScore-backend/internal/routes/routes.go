@@ -77,6 +77,7 @@ func Setup(
 	protected.Post("/desafios/aceitar_desafio", desafioCtrl.AceitarDesafio)
 	protected.Post("/desafios/iniciar", desafioCtrl.IniciarDesafio)
 	protected.Post("/desafios/encerrar", desafioCtrl.EncerrarDesafio)
+	protected.Post("/desafios/cancelar", desafioCtrl.CancelarDesafio)
 	protected.Post("/desafios", desafioCtrl.CriarDesafio)
 	protected.Get("/desafios/:id", desafioCtrl.ListarDesafiosPorUsuario)
 

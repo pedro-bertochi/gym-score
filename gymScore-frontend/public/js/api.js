@@ -232,6 +232,24 @@ var API = {
             body: JSON.stringify({ id_desafio: id_desafio, id_usuario: id_usuario })
         });
     },
+    cancelarDesafio: function(id_desafio) {
+        return _req('/api/desafios/cancelar', {
+            method: 'POST',
+            body: JSON.stringify({ id_desafio: id_desafio })
+        });
+    },
+    iniciarDesafio: function(id_desafio) {
+        return _req('/api/desafios/iniciar', {
+            method: 'POST',
+            body: JSON.stringify({ id_desafio: id_desafio })
+        });
+    },
+    encerrarDesafio: function(id_desafio, id_vencedor) {
+        return _req('/api/desafios/encerrar', {
+            method: 'POST',
+            body: JSON.stringify({ id_desafio: id_desafio, id_vencedor: id_vencedor })
+        });
+    },
 
     // PIX / Depósito
     gerarPix: function(valor, cpf) {

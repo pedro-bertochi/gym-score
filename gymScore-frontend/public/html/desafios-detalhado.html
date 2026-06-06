@@ -33,6 +33,15 @@
     </div>
 
     <div id="errorMsg" aria-live="polite"></div>
+
+    <div class="status-filters" id="statusFilters" hidden>
+        <button class="filter-btn active" data-filter="todos"        onclick="setFilter('todos')">Todos <span class="count" id="cnt-todos">0</span></button>
+        <button class="filter-btn"        data-filter="aberto"       onclick="setFilter('aberto')">Abertos <span class="count" id="cnt-aberto">0</span></button>
+        <button class="filter-btn"        data-filter="pendente"     onclick="setFilter('pendente')">Pendentes <span class="count" id="cnt-pendente">0</span></button>
+        <button class="filter-btn"        data-filter="em_andamento" onclick="setFilter('em_andamento')">Em andamento <span class="count" id="cnt-em_andamento">0</span></button>
+        <button class="filter-btn"        data-filter="encerrado"    onclick="setFilter('encerrado')">Encerrados <span class="count" id="cnt-encerrado">0</span></button>
+    </div>
+
     <div id="statusMsg">Carregando desafios...</div>
     <div id="challengesGrid" class="challenges-grid"></div>
 
@@ -66,9 +75,13 @@
                 <input type="text" id="challengeLocation" placeholder="Ex: SmartFit Centro">
             </div>
             <div class="form-group" style="flex:1;">
-                <label for="entryFee">Valor da aposta (R$)</label>
+                <label for="entryFee">Prêmio (R$)</label>
                 <input type="number" id="entryFee" placeholder="50.00" min="0.01" step="0.01">
             </div>
+        </div>
+        <div class="form-group">
+            <label for="challengeVagas">Vagas (inclui você)</label>
+            <input type="number" id="challengeVagas" placeholder="2" min="2" step="1" value="2">
         </div>
         <div style="display:flex;gap:10px;">
             <div class="form-group" style="flex:1;">
@@ -94,8 +107,9 @@
 <script>
     if (!Auth.require()) throw new Error('unauthenticated');
 
-    var allChallenges = [];
-    var currentUser   = Auth.getUser();
+    var allChallenges  = [];
+    var currentUser    = Auth.getUser();
+    var activeFilter   = 'todos';
 
     async function loadChallenges() {
         var statusEl = document.getElementById('statusMsg');
@@ -107,12 +121,36 @@
         try {
             var resp = await API.listarDesafios();
             allChallenges = resp.data || [];
-            renderChallenges(allChallenges);
         } catch (err) {
-            // Backend retorna 404 para lista vazia — tratar como empty state, não erro
             allChallenges = [];
-            renderChallenges([]);
         }
+        updateCounts();
+        applyFilter();
+    }
+
+    function updateCounts() {
+        var statuses = ['aberto','pendente','em_andamento','encerrado'];
+        document.getElementById('cnt-todos').textContent = allChallenges.length;
+        statuses.forEach(function(s) {
+            var el = document.getElementById('cnt-' + s);
+            if (el) el.textContent = allChallenges.filter(function(c){ return c.status === s; }).length;
+        });
+        document.getElementById('statusFilters').hidden = allChallenges.length === 0;
+    }
+
+    function setFilter(filter) {
+        activeFilter = filter;
+        document.querySelectorAll('.filter-btn').forEach(function(b) {
+            b.classList.toggle('active', b.dataset.filter === filter);
+        });
+        applyFilter();
+    }
+
+    function applyFilter() {
+        var list = activeFilter === 'todos'
+            ? allChallenges
+            : allChallenges.filter(function(c){ return c.status === activeFilter; });
+        renderChallenges(list);
     }
 
     function renderChallenges(list) {
@@ -137,27 +175,84 @@
             card.setAttribute('aria-label', 'Ver detalhes do desafio ' + escHtml(c.titulo));
             card.onclick = function() { showDetails(c); };
             card.onkeydown = function(e) { if (e.key === 'Enter') showDetails(c); };
+            var inscritos = (c.participantes || []).length;
             card.innerHTML =
                 '<div class="status-badge status-' + c.status + '">' + c.status.replace('_', ' ') + '</div>' +
                 '<h3>' + escHtml(c.titulo) + '</h3>' +
                 (c.local ? '<p>📍 ' + escHtml(c.local) + '</p>' : '') +
-                '<div class="prize-tag">R$ ' + parseFloat(c.valor).toFixed(2) + '</div>';
+                '<p>👥 ' + inscritos + '/' + (c.vagas || '-') + ' vagas</p>' +
+                '<div class="prize-tag">🏆 R$ ' + parseFloat(c.valor).toFixed(2) + '</div>';
             grid.appendChild(card);
         });
     }
 
     function showDetails(c) {
-        var canAccept = c.status === 'pendente' && currentUser && c.id_criador !== currentUser.id;
+        var isCreator   = currentUser && c.id_criador === currentUser.id;
+        var participantes = c.participantes || [];
+        var inscritos   = participantes.length;
+        var lotado      = inscritos >= (c.vagas || 0);
+        var euParticipo = participantes.some(function(p){ return p.id_usuario === currentUser.id; });
+        var encerrado   = c.status === 'encerrado';
+
+        var podeEntrar    = c.status === 'aberto' && !euParticipo && !lotado;
+        var podeEncerrar  = isCreator && !encerrado && inscritos > 0;
+        var podeCancelar  = isCreator && c.status === 'aberto';
+
+        // Lista de participantes
+        var listaHTML = '<p style="margin-top:14px;font-weight:600;color:var(--text,#f4f4f4);">Participantes (' + inscritos + '/' + (c.vagas || '-') + ')</p>';
+        if (inscritos === 0) {
+            listaHTML += '<p style="font-size:0.85rem;color:var(--text-muted,#aaa);">Ninguém entrou ainda.</p>';
+        } else {
+            listaHTML += '<ul style="list-style:none;padding:0;margin:6px 0;">';
+            participantes.forEach(function(p) {
+                var u = p.usuario || {};
+                var nome = escHtml(((u.nome || '') + ' ' + (u.sobrenome || '')).trim() || ('Usuário #' + p.id_usuario));
+                var tags = '';
+                if (p.id_usuario === c.id_criador) tags += ' <span style="color:#F39C12;font-size:0.75rem;">(criador)</span>';
+                if (c.id_vencedor && p.id_usuario === c.id_vencedor) tags += ' <span style="color:#27AE60;font-size:0.75rem;">🏆 venceu</span>';
+                listaHTML += '<li style="padding:6px 0;border-bottom:1px solid var(--border,#333);font-size:0.9rem;">' + nome + tags + '</li>';
+            });
+            listaHTML += '</ul>';
+        }
+
+        // Bloco de encerramento: criador escolhe o vencedor entre os participantes
+        var encerrarHTML = '';
+        if (podeEncerrar) {
+            encerrarHTML =
+                '<p style="margin-top:16px;font-weight:600;color:var(--text,#f4f4f4);">Encerrar e indicar o vencedor</p>' +
+                '<div style="display:flex;gap:8px;margin-top:8px;">' +
+                  '<select id="vencedorSelect" class="gs-input" style="flex:1;">' +
+                    participantes.map(function(p) {
+                        var u = p.usuario || {};
+                        var nome = escHtml(((u.nome || '') + ' ' + (u.sobrenome || '')).trim() || ('Usuário #' + p.id_usuario));
+                        if (p.id_usuario === currentUser.id) nome += ' (você)';
+                        return '<option value="' + p.id_usuario + '">' + nome + '</option>';
+                    }).join('') +
+                  '</select>' +
+                  '<button style="background:#27AE60;" onclick="encerrarDesafio(' + c.id + ')" aria-label="Confirmar vencedor e encerrar">Confirmar</button>' +
+                '</div>';
+        }
+
         document.getElementById('detailsContent').innerHTML =
             '<button class="close-btn" onclick="closeModal(\'detailsModal\')" aria-label="Fechar detalhes do desafio">&times;</button>' +
             '<h2 id="detailsTitle">' + escHtml(c.titulo) + '</h2>' +
             '<p>' + escHtml(c.descricao || '') + '</p>' +
             (c.local ? '<p><strong>Local:</strong> ' + escHtml(c.local) + '</p>' : '') +
             '<p><strong>Status:</strong> ' + c.status.replace('_', ' ') + '</p>' +
-            '<h3 style="color:#27AE60">Valor: R$ ' + parseFloat(c.valor).toFixed(2) + '</h3>' +
+            '<h3 style="color:#27AE60">🏆 Prêmio: R$ ' + parseFloat(c.valor).toFixed(2) + '</h3>' +
+            (c.data_encerramento ? '<p><strong>Encerramento:</strong> ' + new Date(c.data_encerramento).toLocaleDateString('pt-BR') + '</p>' : '') +
+            listaHTML +
             '<p id="detailError" style="color:#F1948A;display:none;" aria-live="polite"></p>' +
-            (canAccept
+            (podeEntrar
                 ? '<button style="width:100%;margin-top:12px;background:#2196F3;" onclick="aceitarDesafio(' + c.id + ')" aria-label="Entrar no desafio ' + escHtml(c.titulo) + '">Entrar neste Desafio</button>'
+                : '') +
+            (euParticipo && !encerrado ? '<p style="margin-top:10px;font-size:0.85rem;color:#27AE60;">✓ Você está participando</p>' : '') +
+            (lotado && !euParticipo && c.status === 'aberto' ? '<p style="margin-top:10px;font-size:0.85rem;color:var(--text-muted,#aaa);">Vagas esgotadas.</p>' : '') +
+            encerrarHTML +
+            (podeCancelar
+                ? '<button style="width:100%;margin-top:12px;background:#7F8C8D;" ' +
+                  'onclick="cancelarDesafio(' + c.id + ')" ' +
+                  'aria-label="Cancelar desafio">Cancelar Desafio</button>'
                 : '');
         openModal('detailsModal');
     }
@@ -175,24 +270,68 @@
         }
     }
 
+    async function cancelarDesafio(idDesafio) {
+        if (!confirm('Cancelar este desafio? Nenhum saldo será alterado.')) return;
+        try {
+            await API.cancelarDesafio(idDesafio);
+            closeModal('detailsModal');
+            showToast('Desafio cancelado.', 'success');
+            loadChallenges();
+        } catch (err) {
+            var el = document.getElementById('detailError');
+            if (el) { el.textContent = err.message; el.style.display = 'block'; }
+        }
+    }
+
+    async function encerrarDesafio(idDesafio) {
+        var sel = document.getElementById('vencedorSelect');
+        if (!sel) return;
+        var idVencedor = parseInt(sel.value, 10);
+        try {
+            await API.encerrarDesafio(idDesafio, idVencedor);
+            closeModal('detailsModal');
+            showToast('Desafio encerrado!', 'success');
+            // Atualiza saldo no localStorage se o usuário atual foi afetado
+            try {
+                var resp = await _req('/api/usuarios/' + currentUser.id);
+                if (resp.data) {
+                    Auth.save(Auth.getToken(), resp.data);
+                    currentUser = resp.data;
+                }
+            } catch(_) {}
+            loadChallenges();
+        } catch (err) {
+            var el = document.getElementById('detailError');
+            if (el) { el.textContent = err.message; el.style.display = 'block'; }
+        }
+    }
+
     async function createChallenge() {
         var name     = document.getElementById('challengeName').value.trim();
         var desc     = document.getElementById('challengeDescription').value.trim();
         var location = document.getElementById('challengeLocation').value.trim();
         var fee      = parseFloat(document.getElementById('entryFee').value);
+        var vagas    = parseInt(document.getElementById('challengeVagas').value, 10) || 2;
         var errEl    = document.getElementById('createError');
         errEl.style.display = 'none';
 
         if (!name || !fee || fee <= 0) {
-            errEl.textContent = 'Preencha o nome e o valor do desafio.';
+            errEl.textContent = 'Preencha o nome e o prêmio do desafio.';
+            errEl.style.display = 'block';
+            return;
+        }
+        if (vagas < 2) {
+            errEl.textContent = 'O desafio precisa de pelo menos 2 vagas.';
             errEl.style.display = 'block';
             return;
         }
 
+        var endDate = document.getElementById('challengeEndDate').value;
         try {
-            await API.criarDesafio({ titulo: name, descricao: desc, local: location, valor: fee, id_criador: currentUser.id });
+            await API.criarDesafio({ titulo: name, descricao: desc, local: location, valor: fee, vagas: vagas, id_criador: currentUser.id, data_encerramento: endDate || undefined });
             closeModal('createModal');
             document.querySelectorAll('#createModal input, #createModal textarea').forEach(function(el) { el.value = ''; });
+            document.getElementById('challengeVagas').value = '2';
             showToast('Desafio criado!', 'success');
             loadChallenges();
         } catch (err) {
@@ -203,11 +342,11 @@
 
     function searchChallenges() {
         var q = document.getElementById('searchQuery').value.toLowerCase();
-        var clearBtn = document.getElementById('clearSearch');
-        clearBtn.style.display = q ? 'block' : 'none';
-        var filtered = allChallenges.filter(function(c) {
+        document.getElementById('clearSearch').style.display = q ? 'block' : 'none';
+        var base = activeFilter === 'todos' ? allChallenges : allChallenges.filter(function(c){ return c.status === activeFilter; });
+        var filtered = q ? base.filter(function(c) {
             return c.titulo.toLowerCase().includes(q) || (c.local || '').toLowerCase().includes(q);
-        });
+        }) : base;
         renderChallenges(filtered);
     }
 
@@ -215,7 +354,7 @@
         var input = document.getElementById('searchQuery');
         input.value = '';
         document.getElementById('clearSearch').style.display = 'none';
-        renderChallenges(allChallenges);
+        applyFilter();
         input.focus();
     }
 

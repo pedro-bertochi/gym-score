@@ -110,6 +110,38 @@ button:active { transform: scale(0.97); }
 .status-em_andamento{ background: rgba(33,150,243,0.15); color: #64B5F6; }
 .status-encerrado   { background: rgba(158,158,158,0.15);color: #9E9E9E; }
 
+/* ── Filtros de status ───────────────────────────────────────────────────── */
+.status-filters {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+.filter-btn {
+    padding: 6px 14px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    background: var(--bg-surface);
+    color: var(--text-muted);
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+.filter-btn:hover { border-color: var(--primary); color: var(--text); background: var(--bg-surface); }
+.filter-btn.active { border-color: var(--primary); color: var(--primary); background: var(--primary-glow); }
+.filter-btn .count {
+    background: var(--bg-card);
+    border-radius: 10px;
+    padding: 1px 6px;
+    font-size: 0.75rem;
+    min-width: 18px;
+    text-align: center;
+}
+
 /* ── Modais ──────────────────────────────────────────────────────────────── */
 .modal-overlay {
     display: none;

@@ -54,6 +54,7 @@ func main() {
 	err = db.AutoMigrate(
 		&models.Usuario{},
 		&models.Desafio{},
+		&models.DesafioParticipante{},
 		&models.Amizade{},
 		&models.Transacao{},
 	)

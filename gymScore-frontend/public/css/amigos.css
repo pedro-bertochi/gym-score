@@ -132,6 +132,37 @@ body {
 .friend-actions button:hover { background: rgba(231,76,60,0.22); }
 .friend-actions button:disabled { opacity: 0.5; cursor: not-allowed; }
 
+/* Botão "Aceitar" (primary) sobrescreve o estilo vermelho padrão */
+.friend-actions button.gs-btn-primary {
+  border: 1px solid var(--primary);
+  background: var(--primary);
+  color: #fff;
+}
+.friend-actions button.gs-btn-primary:hover { background: var(--primary-dark); }
+
+/* ─── Títulos de seção (recebidas / enviadas / amigos) ────────────────────── */
+.friends-section-title {
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  margin: 18px 0 10px;
+}
+
+/* ─── Tag de solicitação pendente enviada ─────────────────────────────────── */
+.friend-pending-tag {
+  display: inline-block;
+  padding: 4px 10px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #FFC107;
+  background: rgba(255,193,7,0.15);
+  border-radius: 12px;
+  margin-left: 8px;
+  vertical-align: middle;
+}
+
 /* ─── Empty state ─────────────────────────────────────────────────────────── */
 .empty-state {
   text-align: center;

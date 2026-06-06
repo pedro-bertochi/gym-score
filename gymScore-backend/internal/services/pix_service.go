@@ -46,6 +46,9 @@ func (s *pixService) GerarPagamento(req models.PIXRequest) (*models.PIXResponse,
 	if err != nil {
 		return nil, fmt.Errorf("usuário não encontrado: %w", err)
 	}
+	if usuario == nil {
+		return nil, fmt.Errorf("usuário não encontrado")
+	}
 
 	descricao := fmt.Sprintf("Depósito GymScore - usuário %d", usuario.ID)
 
@@ -68,10 +71,15 @@ func (s *pixService) GerarPagamento(req models.PIXRequest) (*models.PIXResponse,
 		IDUsuario:      usuario.ID,
 		AsaasPaymentID: payment.ID,
 		Valor:          req.Valor,
-		Status:         "pending",
+		Status:         "received",
 	}
 	if err := s.transacaoRepo.Criar(transacao); err != nil {
 		return nil, fmt.Errorf("falha ao salvar transação: %w", err)
+	}
+
+	usuario.Saldo += req.Valor
+	if err := s.usuarioRepo.Atualizar(usuario); err != nil {
+		return nil, fmt.Errorf("falha ao atualizar saldo: %w", err)
 	}
 
 	return &models.PIXResponse{

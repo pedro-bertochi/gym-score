@@ -31,7 +31,20 @@
             <div aria-live="polite" id="searchMsg" class="gs-msg" style="margin-top:8px;"></div>
         </div>
 
+        <!-- Solicitações recebidas -->
+        <div id="requestsSection" hidden>
+            <h2 class="friends-section-title">Solicitações recebidas</h2>
+            <ul class="friends-list" id="requestsList" aria-label="Solicitações de amizade recebidas"></ul>
+        </div>
+
+        <!-- Solicitações enviadas (aguardando) -->
+        <div id="sentSection" hidden>
+            <h2 class="friends-section-title">Aguardando resposta</h2>
+            <ul class="friends-list" id="sentList" aria-label="Solicitações de amizade enviadas"></ul>
+        </div>
+
         <!-- Lista de amigos -->
+        <h2 class="friends-section-title" id="friendsTitle" hidden>Meus amigos</h2>
         <div id="statusMsg" class="gs-msg" aria-live="polite" style="margin-bottom:12px;"></div>
         <ul class="friends-list" id="friendsList" aria-label="Lista de amigos"></ul>
 
@@ -57,45 +70,94 @@
 
     // ── Carrega lista de amigos ───────────────────────────────────────────────
     async function loadFriends() {
-        var statusEl = document.getElementById('statusMsg');
-        var listEl   = document.getElementById('friendsList');
-        var emptyEl  = document.getElementById('emptyState');
+        var statusEl     = document.getElementById('statusMsg');
+        var listEl       = document.getElementById('friendsList');
+        var requestsEl   = document.getElementById('requestsList');
+        var sentEl       = document.getElementById('sentList');
+        var emptyEl      = document.getElementById('emptyState');
 
         statusEl.className = 'gs-msg';
         statusEl.textContent = 'Carregando...';
         statusEl.classList.add('show');
         listEl.innerHTML = '';
+        requestsEl.innerHTML = '';
+        sentEl.innerHTML = '';
         emptyEl.hidden = true;
 
         try {
             var resp = await API.listarAmigos(currentUser.id);
-            var amigos = resp.data || [];
+            var dados = resp.data || [];
             statusEl.classList.remove('show');
 
-            if (amigos.length === 0) {
-                emptyEl.hidden = false;
-                return;
-            }
+            var aceitos   = dados.filter(function(a){ return a.status === 'aceita'; });
+            var recebidas = dados.filter(function(a){ return a.status === 'pendente' && a.recebida; });
+            var enviadas  = dados.filter(function(a){ return a.status === 'pendente' && !a.recebida; });
 
-            amigos.forEach(function(a) {
-                var nome = escHtml(((a.nome || '') + ' ' + (a.sobrenome || '')).trim() || 'Usuário');
-                var email = escHtml(a.email || '');
-                var id = a.id_usuario === currentUser.id ? a.id_amigo : a.id_usuario;
-                var li = document.createElement('li');
-                li.className = 'friend-item';
-                li.innerHTML =
-                    '<div class="friend-info">' +
-                        '<span class="friend-name">' + nome + '</span>' +
-                        (email ? '<span class="friend-email">' + email + '</span>' : '') +
-                    '</div>' +
-                    '<div class="friend-actions">' +
-                        '<button onclick="removeFriend(' + id + ', this)" aria-label="Remover ' + nome + '">Remover</button>' +
-                    '</div>';
-                listEl.appendChild(li);
+            // Solicitações recebidas (com botão aceitar)
+            document.getElementById('requestsSection').hidden = recebidas.length === 0;
+            recebidas.forEach(function(a) {
+                requestsEl.appendChild(buildItem(a, 'request'));
             });
+
+            // Solicitações enviadas (aguardando)
+            document.getElementById('sentSection').hidden = enviadas.length === 0;
+            enviadas.forEach(function(a) {
+                sentEl.appendChild(buildItem(a, 'sent'));
+            });
+
+            // Amigos aceitos
+            document.getElementById('friendsTitle').hidden = aceitos.length === 0;
+            aceitos.forEach(function(a) {
+                listEl.appendChild(buildItem(a, 'friend'));
+            });
+
+            // Empty state geral só quando não há absolutamente nada
+            emptyEl.hidden = dados.length !== 0;
         } catch (err) {
             statusEl.className = 'gs-msg error show';
             statusEl.textContent = 'Erro ao carregar amigos.';
+        }
+    }
+
+    // Monta um item de amigo/solicitação conforme o tipo
+    function buildItem(a, tipo) {
+        var nome  = escHtml(((a.nome || '') + ' ' + (a.sobrenome || '')).trim() || 'Usuário');
+        var email = escHtml(a.email || '');
+        var li = document.createElement('li');
+        li.className = 'friend-item';
+
+        var actions = '';
+        if (tipo === 'request') {
+            actions =
+                '<button class="gs-btn gs-btn-primary" onclick="acceptFriend(' + a.id + ', this)" aria-label="Aceitar ' + nome + '">Aceitar</button>' +
+                '<button onclick="removeFriend(' + a.id + ', this)" aria-label="Recusar ' + nome + '">Recusar</button>';
+        } else if (tipo === 'sent') {
+            actions =
+                '<span class="friend-pending-tag">Pendente</span>' +
+                '<button onclick="removeFriend(' + a.id + ', this)" aria-label="Cancelar solicitação para ' + nome + '">Cancelar</button>';
+        } else {
+            actions = '<button onclick="removeFriend(' + a.id + ', this)" aria-label="Remover ' + nome + '">Remover</button>';
+        }
+
+        li.innerHTML =
+            '<div class="friend-info">' +
+                '<span class="friend-name">' + nome + '</span>' +
+                (email ? '<span class="friend-email">' + email + '</span>' : '') +
+            '</div>' +
+            '<div class="friend-actions">' + actions + '</div>';
+        return li;
+    }
+
+    // ── Aceitar solicitação ──────────────────────────────────────────────────
+    async function acceptFriend(idAmigo, btn) {
+        btn.disabled = true;
+        try {
+            await API.aceitarAmizade(currentUser.id, idAmigo);
+            showToast('Amizade aceita!', 'success');
+            loadFriends();
+        } catch (err) {
+            showToast(err.message, 'error');
+            btn.disabled = false;
         }
     }
 
