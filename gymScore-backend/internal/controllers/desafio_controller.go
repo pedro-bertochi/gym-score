@@ -186,7 +186,11 @@ func (ctrl *DesafioController) CancelarDesafio(c *fiber.Ctx) error {
 // @Success     200 {object} utils.APIResponse
 // @Router      /api/desafios/view [get]
 func (ctrl *DesafioController) ListarDesafios(c *fiber.Ctx) error {
-	desafios, err := ctrl.service.Listar()
+	var idUsuario uint
+	if uid := c.Locals("user_id"); uid != nil {
+		idUsuario, _ = uid.(uint)
+	}
+	desafios, err := ctrl.service.Listar(idUsuario)
 	if err != nil {
 		return utils.Error(c, fiber.StatusInternalServerError, "Erro ao listar desafios: "+err.Error())
 	}

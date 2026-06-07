@@ -142,6 +142,58 @@ button:active { transform: scale(0.97); }
     text-align: center;
 }
 
+/* ── Barra de ordenação e faixa de valor ─────────────────────────────────── */
+.sort-bar {
+    display: flex;
+    gap: 14px;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+}
+.sort-field { display: flex; flex-direction: column; gap: 4px; }
+.sort-field span {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+.sort-field select {
+    padding: 8px 12px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    background: var(--bg-surface);
+    color: var(--text);
+    font-family: inherit;
+    font-size: 0.88rem;
+    cursor: pointer;
+}
+.valor-range {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+.valor-range input {
+    width: 70px;
+    padding: 8px 10px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    background: var(--bg-surface);
+    color: var(--text);
+    font-family: inherit;
+    font-size: 0.88rem;
+}
+.valor-range #clearRange {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 0.95rem;
+    padding: 4px 6px;
+}
+.valor-range #clearRange:hover { color: var(--text); background: none; }
+
 /* ── Modais ──────────────────────────────────────────────────────────────── */
 .modal-overlay {
     display: none;

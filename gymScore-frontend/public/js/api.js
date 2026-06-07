@@ -261,6 +261,9 @@ var API = {
     consultarPagamento: function(asaasId) {
         return _req('/api/pagamento/pix/' + asaasId);
     },
+    simularPagamento: function(asaasId) {
+        return _req('/api/pagamento/pix/' + asaasId + '/simular', { method: 'POST' });
+    },
 
     // Amigos
     listarAmigos: function(id) { return _req('/api/amigos/' + id); },
@@ -281,5 +284,25 @@ var API = {
             method: 'POST',
             body: JSON.stringify({ id_usuario: id_usuario, id_amigo: id_amigo })
         });
-    }
+    },
+
+    // Treinos
+    listarTreinos: function() { return _req('/api/treinos'); },
+    criarTreino: function(dados) {
+        return _req('/api/treinos', { method: 'POST', body: JSON.stringify(dados) });
+    },
+    buscarTreino: function(id) { return _req('/api/treinos/' + id); },
+    deletarTreino: function(id) {
+        return _req('/api/treinos/' + id, { method: 'DELETE' });
+    },
+    importarTreino: function(codigo) {
+        return _req('/api/treinos/importar', { method: 'POST', body: JSON.stringify({ codigo: codigo }) });
+    },
+    concluirExercicio: function(id_treino, grupo_muscular) {
+        return _req('/api/treinos/concluir', {
+            method: 'POST',
+            body: JSON.stringify({ id_treino: id_treino, grupo_muscular: grupo_muscular })
+        });
+    },
+    radarTreinos: function() { return _req('/api/treinos/radar'); }
 };

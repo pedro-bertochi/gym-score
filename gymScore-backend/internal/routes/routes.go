@@ -1,10 +1,11 @@
 package routes
 
 import (
-	"github.com/gofiber/fiber/v2"
 	"gynScore-backend/internal/config"
 	"gynScore-backend/internal/controllers"
 	"gynScore-backend/internal/middlewares"
+
+	"github.com/gofiber/fiber/v2"
 )
 
 // Setup registra todas as rotas da aplicação no servidor Fiber
@@ -15,6 +16,7 @@ func Setup(
 	desafioCtrl *controllers.DesafioController,
 	amizadeCtrl *controllers.AmizadeController,
 	pixCtrl controllers.PIXController,
+	treinoCtrl *controllers.TreinoController,
 	webhookCtrl *controllers.WebhookController,
 ) {
 	fp := cfg.FrontendPath
@@ -28,11 +30,11 @@ func Setup(
 	app.Get("/amigos", func(c *fiber.Ctx) error { return c.SendFile(htmlDir + "amigos.html") })
 	app.Get("/perfil", func(c *fiber.Ctx) error { return c.SendFile(htmlDir + "perfil.html") })
 	app.Get("/alterar-perfil", func(c *fiber.Ctx) error { return c.SendFile(htmlDir + "alterar-perfil.html") })
-	app.Get("/alterar-senha",  func(c *fiber.Ctx) error { return c.SendFile(htmlDir + "alterar-senha.html") })
-	app.Get("/esqueci-senha",  func(c *fiber.Ctx) error { return c.SendFile(htmlDir + "esqueci-senha.html") })
-	app.Get("/privacidade",    func(c *fiber.Ctx) error { return c.SendFile(htmlDir + "privacidade.html") })
-	app.Get("/treinos",        func(c *fiber.Ctx) error { return c.SendFile(htmlDir + "treinos.html") })
-	app.Get("/depositar",      func(c *fiber.Ctx) error { return c.SendFile(htmlDir + "depositar.html") })
+	app.Get("/alterar-senha", func(c *fiber.Ctx) error { return c.SendFile(htmlDir + "alterar-senha.html") })
+	app.Get("/esqueci-senha", func(c *fiber.Ctx) error { return c.SendFile(htmlDir + "esqueci-senha.html") })
+	app.Get("/privacidade", func(c *fiber.Ctx) error { return c.SendFile(htmlDir + "privacidade.html") })
+	app.Get("/treinos", func(c *fiber.Ctx) error { return c.SendFile(htmlDir + "treinos.html") })
+	app.Get("/depositar", func(c *fiber.Ctx) error { return c.SendFile(htmlDir + "depositar.html") })
 
 	// Arquivos estáticos (css, js, img)
 	app.Static("/", fp, fiber.Static{Index: "index.html", Browse: false})
@@ -40,9 +42,11 @@ func Setup(
 	// Rota de health check
 	app.Get("/health", func(c *fiber.Ctx) error {
 		return c.JSON(fiber.Map{
-			"status":  "ok",
-			"service": "GymScore API",
-			"version": "1.0.0",
+			"status":      "ok",
+			"service":     "GymScore API",
+			"version":     "1.0.0",
+			"asaas_env":   cfg.AsaasEnv,
+			"asaas_teste": cfg.IsAsaasSandbox(),
 		})
 	})
 
@@ -90,5 +94,15 @@ func Setup(
 	// Pagamento PIX (Depósito de Saldo)
 	protected.Post("/pagamento/pix", pixCtrl.GerarPagamento)
 	protected.Get("/pagamento/pix/:asaas_id", pixCtrl.ConsultarPagamento)
+	protected.Post("/pagamento/pix/:asaas_id/simular", pixCtrl.SimularPagamento)
+
+	// Treinos — rotas específicas ANTES das rotas com parâmetro dinâmico
+	protected.Get("/treinos/radar", treinoCtrl.Radar)
+	protected.Post("/treinos/importar", treinoCtrl.ImportarTreino)
+	protected.Post("/treinos/concluir", treinoCtrl.ConcluirExercicio)
+	protected.Get("/treinos", treinoCtrl.ListarTreinos)
+	protected.Post("/treinos", treinoCtrl.CriarTreino)
+	protected.Get("/treinos/:id", treinoCtrl.BuscarTreino)
+	protected.Delete("/treinos/:id", treinoCtrl.DeletarTreino)
 
 }

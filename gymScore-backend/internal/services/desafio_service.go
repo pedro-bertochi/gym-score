@@ -17,7 +17,7 @@ type DesafioService interface {
 	IniciarDesafio(req *models.IniciarDesafioRequest) (*models.Desafio, error)
 	EncerrarDesafio(req *models.EncerrarDesafioRequest) (*models.Desafio, error)
 	CancelarDesafio(idDesafio, idCriador uint) error
-	Listar() ([]models.Desafio, error)
+	Listar(idUsuario uint) ([]models.Desafio, error)
 	ListarPorUsuario(idUsuario uint) ([]models.Desafio, error)
 	BuscarPorID(id uint) (*models.Desafio, error)
 }
@@ -244,9 +244,35 @@ func (s *desafioService) CancelarDesafio(idDesafio, idCriador uint) error {
 	return s.desafioRepo.Atualizar(desafio)
 }
 
-// Listar retorna todos os desafios cadastrados
-func (s *desafioService) Listar() ([]models.Desafio, error) {
-	return s.desafioRepo.Listar()
+// Listar retorna os desafios visíveis para o usuário. Desafios ainda ativos e
+// já lotados (vagas esgotadas) só aparecem para quem participa (incluindo o criador).
+func (s *desafioService) Listar(idUsuario uint) ([]models.Desafio, error) {
+	desafios, err := s.desafioRepo.Listar()
+	if err != nil {
+		return nil, err
+	}
+	visiveis := make([]models.Desafio, 0, len(desafios))
+	for _, d := range desafios {
+		lotado := len(d.Participantes) >= d.Vagas
+		if d.Status != models.StatusEncerrado && lotado && !usuarioParticipaDe(d, idUsuario) {
+			continue
+		}
+		visiveis = append(visiveis, d)
+	}
+	return visiveis, nil
+}
+
+// usuarioParticipaDe indica se o usuário é o criador ou um participante do desafio.
+func usuarioParticipaDe(d models.Desafio, idUsuario uint) bool {
+	if d.IDCriador == idUsuario {
+		return true
+	}
+	for _, p := range d.Participantes {
+		if p.IDUsuario == idUsuario {
+			return true
+		}
+	}
+	return false
 }
 
 // ListarPorUsuario retorna os desafios ativos de um usuário

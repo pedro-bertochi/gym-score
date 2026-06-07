@@ -7,8 +7,6 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/swagger"
 	"gynScore-backend/internal/client"
 	"gynScore-backend/internal/config"
 	"gynScore-backend/internal/controllers"
@@ -17,6 +15,9 @@ import (
 	"gynScore-backend/internal/repositories"
 	"gynScore-backend/internal/routes"
 	"gynScore-backend/internal/services"
+
+	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/swagger"
 
 	_ "gynScore-backend/docs"
 )
@@ -57,6 +58,9 @@ func main() {
 		&models.DesafioParticipante{},
 		&models.Amizade{},
 		&models.Transacao{},
+		&models.Treino{},
+		&models.TreinoExercicio{},
+		&models.TreinoConclusao{},
 	)
 	if err != nil {
 		log.Fatalf("[FATAL] Erro ao realizar auto-migração: %v", err)
@@ -70,6 +74,7 @@ func main() {
 	desafioRepo := repositories.NovoDesafioRepository(db)
 	amizadeRepo := repositories.NovoAmizadeRepository(db)
 	transacaoRepo := repositories.NovoTransacaoRepository(db)
+	treinoRepo := repositories.NovoTreinoRepository(db)
 
 	// Clients
 	asaasClient := client.NewAsaasClient(cfg)
@@ -79,12 +84,14 @@ func main() {
 	desafioSvc := services.NovoDesafioService(desafioRepo, usuarioRepo)
 	amizadeSvc := services.NovoAmizadeService(amizadeRepo, usuarioRepo)
 	pixSvc := services.NovoPIXService(asaasClient, usuarioRepo, transacaoRepo)
+	treinoSvc := services.NovoTreinoService(treinoRepo, usuarioRepo)
 
 	// Controllers
 	usuarioCtrl := controllers.NovoUsuarioController(usuarioSvc, cfg)
 	desafioCtrl := controllers.NovoDesafioController(desafioSvc)
 	amizadeCtrl := controllers.NovoAmizadeController(amizadeSvc)
-	pixCtrl := controllers.NovoPIXController(pixSvc)
+	pixCtrl := controllers.NovoPIXController(pixSvc, cfg)
+	treinoCtrl := controllers.NovoTreinoController(treinoSvc)
 	webhookCtrl := controllers.NovoWebhookController(db, transacaoRepo, usuarioRepo, cfg)
 
 	// ─── Configuração do servidor Fiber ──────────────────────────────────────────
@@ -102,7 +109,7 @@ func main() {
 	app.Get("/swagger/*", swagger.HandlerDefault)
 
 	// Registro das rotas
-	routes.Setup(app, cfg, usuarioCtrl, desafioCtrl, amizadeCtrl, pixCtrl, webhookCtrl)
+	routes.Setup(app, cfg, usuarioCtrl, desafioCtrl, amizadeCtrl, pixCtrl, treinoCtrl, webhookCtrl)
 
 	// ─── Inicialização do servidor ────────────────────────────────────────────────
 	addr := fmt.Sprintf(":%s", cfg.AppPort)

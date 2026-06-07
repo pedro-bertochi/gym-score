@@ -11,6 +11,7 @@ import (
 type PIXService interface {
 	GerarPagamento(req models.PIXRequest) (*models.PIXResponse, error)
 	ConsultarPagamento(asaasID string) (*models.Transacao, error)
+	SimularPagamento(asaasID string) error
 }
 
 type pixService struct {
@@ -27,8 +28,66 @@ func NovoPIXService(
 	return &pixService{asaasClient, usuarioRepo, transacaoRepo}
 }
 
+// ConsultarPagamento confirma o pagamento por polling ativo: consulta o status
+// direto na API do Asaas (sem depender de webhook). Quando o pagamento é confirmado,
+// credita o saldo do usuário uma única vez de forma idempotente.
 func (s *pixService) ConsultarPagamento(asaasID string) (*models.Transacao, error) {
-	return s.transacaoRepo.BuscarPorAsaasID(asaasID)
+	transacao, err := s.transacaoRepo.BuscarPorAsaasID(asaasID)
+	if err != nil {
+		return nil, err
+	}
+	if transacao == nil {
+		return nil, fmt.Errorf("transação não encontrada")
+	}
+
+	// Já confirmada anteriormente — nada a fazer
+	if transacao.Status == "received" {
+		return transacao, nil
+	}
+
+	// Consulta o status real no Asaas
+	status, err := s.asaasClient.BuscarStatusPagamento(asaasID)
+	if err != nil {
+		// Não falha o polling: devolve o estado atual e tenta de novo no próximo ciclo
+		return transacao, nil
+	}
+
+	if status == "RECEIVED" || status == "CONFIRMED" || status == "RECEIVED_IN_CASH" {
+		// Muda pending->received atomicamente; só credita quem efetivou a mudança
+		mudou, err := s.transacaoRepo.MarcarRecebidoSePendente(asaasID)
+		if err != nil {
+			return transacao, nil
+		}
+		if mudou {
+			if usuario, err := s.usuarioRepo.BuscarPorID(transacao.IDUsuario); err == nil && usuario != nil {
+				usuario.Saldo += transacao.Valor
+				_ = s.usuarioRepo.Atualizar(usuario)
+			}
+		}
+		transacao.Status = "received"
+	}
+
+	return transacao, nil
+}
+
+// SimularPagamento marca a cobrança como recebida no Asaas (sandbox) e processa o
+// crédito imediatamente, reaproveitando a lógica idempotente de ConsultarPagamento.
+func (s *pixService) SimularPagamento(asaasID string) error {
+	transacao, err := s.transacaoRepo.BuscarPorAsaasID(asaasID)
+	if err != nil {
+		return err
+	}
+	if transacao == nil {
+		return fmt.Errorf("transação não encontrada")
+	}
+	if transacao.Status == "received" {
+		return nil
+	}
+	if err := s.asaasClient.SimularRecebimento(asaasID, transacao.Valor); err != nil {
+		return err
+	}
+	_, err = s.ConsultarPagamento(asaasID)
+	return err
 }
 
 func (s *pixService) GerarPagamento(req models.PIXRequest) (*models.PIXResponse, error) {
@@ -71,15 +130,10 @@ func (s *pixService) GerarPagamento(req models.PIXRequest) (*models.PIXResponse,
 		IDUsuario:      usuario.ID,
 		AsaasPaymentID: payment.ID,
 		Valor:          req.Valor,
-		Status:         "received",
+		Status:         "pending",
 	}
 	if err := s.transacaoRepo.Criar(transacao); err != nil {
 		return nil, fmt.Errorf("falha ao salvar transação: %w", err)
-	}
-
-	usuario.Saldo += req.Valor
-	if err := s.usuarioRepo.Atualizar(usuario); err != nil {
-		return nil, fmt.Errorf("falha ao atualizar saldo: %w", err)
 	}
 
 	return &models.PIXResponse{

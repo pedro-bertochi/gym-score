@@ -25,9 +25,15 @@ type Config struct {
 	PIXChave     string
 	PIXNome      string
 	PIXCidade    string
+	AsaasEnv          string // "sandbox" ou "prod"
 	AsaasAPIKey       string
 	AsaasBaseURL      string
 	AsaasWebhookToken string
+}
+
+// IsAsaasSandbox indica se estamos no ambiente de homologação do Asaas.
+func (c *Config) IsAsaasSandbox() bool {
+	return c.AsaasEnv != "prod" && c.AsaasEnv != "production"
 }
 
 // Load carrega as variáveis de ambiente do arquivo .env
@@ -36,7 +42,7 @@ func Load() *Config {
 		log.Println("[CONFIG] Arquivo .env não encontrado, usando variáveis de ambiente do sistema")
 	}
 
-	return &Config{
+	cfg := &Config{
 		AppPort:      getEnv("APP_PORT", "3000"),
 		DBHost:       getEnv("DB_HOST", "localhost"),
 		DBPort:       getEnv("DB_PORT", "3306"),
@@ -49,11 +55,33 @@ func Load() *Config {
 		PIXChave:     getEnv("PIX_CHAVE", "sua-chave-pix@email.com"),
 		PIXNome:      getEnv("PIX_NOME_RECEBEDOR", "GYMSCORE SISTEMA"),
 		PIXCidade:    getEnv("PIX_CIDADE_RECEBEDOR", "SAO PAULO"),
-		AsaasAPIKey:      getEnv("ASAAS_API_KEY", ""),
-		AsaasBaseURL:     getEnv("ASAAS_BASE_URL", "https://api.asaas.com"),
 		AsaasWebhookToken: getEnv("ASAAS_WEBHOOK_TOKEN", ""),
 	}
+
+	// ─── Asaas: um único toggle (ASAAS_ENV) define URL e chave ───────────────────
+	asaasEnv := getEnv("ASAAS_ENV", "sandbox")
+	if asaasEnv == "prod" || asaasEnv == "production" {
+		cfg.AsaasEnv = "prod"
+		cfg.AsaasBaseURL = getEnv("ASAAS_BASE_URL", "https://api.asaas.com")
+		cfg.AsaasAPIKey = firstNonEmpty(getEnv("ASAAS_API_KEY_PROD", ""), getEnv("ASAAS_API_KEY", ""))
+	} else {
+		cfg.AsaasEnv = "sandbox"
+		cfg.AsaasBaseURL = getEnv("ASAAS_BASE_URL", "https://api-sandbox.asaas.com")
+		cfg.AsaasAPIKey = firstNonEmpty(getEnv("ASAAS_API_KEY_SANDBOX", ""), getEnv("ASAAS_API_KEY", ""))
 	}
+	log.Printf("[CONFIG] Asaas em modo: %s (%s)", cfg.AsaasEnv, cfg.AsaasBaseURL)
+	return cfg
+}
+
+// firstNonEmpty retorna o primeiro valor não vazio.
+func firstNonEmpty(vals ...string) string {
+	for _, v := range vals {
+		if v != "" {
+			return v
+		}
+	}
+	return ""
+}
 
 // ConnectDB inicializa a conexão com o banco de dados MySQL via GORM
 func ConnectDB(cfg *Config) (*gorm.DB, error) {

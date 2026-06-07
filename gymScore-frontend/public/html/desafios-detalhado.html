@@ -35,11 +35,31 @@
     <div id="errorMsg" aria-live="polite"></div>
 
     <div class="status-filters" id="statusFilters" hidden>
-        <button class="filter-btn active" data-filter="todos"        onclick="setFilter('todos')">Todos <span class="count" id="cnt-todos">0</span></button>
+        <button class="filter-btn active" data-filter="todos"        onclick="setFilter('todos')">Ativos <span class="count" id="cnt-todos">0</span></button>
         <button class="filter-btn"        data-filter="aberto"       onclick="setFilter('aberto')">Abertos <span class="count" id="cnt-aberto">0</span></button>
         <button class="filter-btn"        data-filter="pendente"     onclick="setFilter('pendente')">Pendentes <span class="count" id="cnt-pendente">0</span></button>
         <button class="filter-btn"        data-filter="em_andamento" onclick="setFilter('em_andamento')">Em andamento <span class="count" id="cnt-em_andamento">0</span></button>
-        <button class="filter-btn"        data-filter="encerrado"    onclick="setFilter('encerrado')">Encerrados <span class="count" id="cnt-encerrado">0</span></button>
+        <button class="filter-btn"        data-filter="historico"    onclick="setFilter('historico')">📜 Histórico <span class="count" id="cnt-encerrado">0</span></button>
+    </div>
+
+    <!-- Barra de ordenação e faixa de valor -->
+    <div class="sort-bar" id="sortBar" hidden>
+        <label class="sort-field">
+            <span>Ordenar</span>
+            <select id="sortMode" onchange="onSortChange()">
+                <option value="recentes">Mais recentes</option>
+                <option value="valor_asc">Menor prêmio</option>
+                <option value="valor_desc">Maior prêmio</option>
+                <option value="proximidade">Mais próximos</option>
+            </select>
+        </label>
+        <div class="valor-range">
+            <span>Prêmio R$</span>
+            <input type="number" id="valorMin" placeholder="mín" min="0" step="1" oninput="applyFilter()" aria-label="Valor mínimo">
+            <span>—</span>
+            <input type="number" id="valorMax" placeholder="máx" min="0" step="1" oninput="applyFilter()" aria-label="Valor máximo">
+            <button type="button" id="clearRange" onclick="limparFaixa()" title="Limpar faixa" aria-label="Limpar faixa de valor">✕</button>
+        </div>
     </div>
 
     <div id="statusMsg">Carregando desafios...</div>
@@ -80,6 +100,12 @@
             </div>
         </div>
         <div class="form-group">
+            <button type="button" id="btnLocalizacao" onclick="capturarLocalizacao()" style="width:100%;background:var(--bg-surface);color:var(--text);border:1px solid var(--border);">
+                📍 Usar minha localização (para busca por proximidade)
+            </button>
+            <p id="geoStatus" style="font-size:0.8rem;color:var(--text-muted);margin-top:6px;"></p>
+        </div>
+        <div class="form-group">
             <label for="challengeVagas">Vagas (inclui você)</label>
             <input type="number" id="challengeVagas" placeholder="2" min="2" step="1" value="2">
         </div>
@@ -110,6 +136,9 @@
     var allChallenges  = [];
     var currentUser    = Auth.getUser();
     var activeFilter   = 'todos';
+    var sortMode       = 'recentes';
+    var userCoords     = null;   // {lat, lng} para ordenação por proximidade
+    var novoDesafioCoords = null; // {lat, lng} capturado ao criar desafio
 
     async function loadChallenges() {
         var statusEl = document.getElementById('statusMsg');
@@ -129,13 +158,15 @@
     }
 
     function updateCounts() {
-        var statuses = ['aberto','pendente','em_andamento','encerrado'];
-        document.getElementById('cnt-todos').textContent = allChallenges.length;
-        statuses.forEach(function(s) {
+        var ativos = allChallenges.filter(function(c){ return c.status !== 'encerrado'; }).length;
+        document.getElementById('cnt-todos').textContent = ativos;
+        ['aberto','pendente','em_andamento','encerrado'].forEach(function(s) {
             var el = document.getElementById('cnt-' + s);
             if (el) el.textContent = allChallenges.filter(function(c){ return c.status === s; }).length;
         });
-        document.getElementById('statusFilters').hidden = allChallenges.length === 0;
+        var temAlgum = allChallenges.length > 0;
+        document.getElementById('statusFilters').hidden = !temAlgum;
+        document.getElementById('sortBar').hidden = !temAlgum;
     }
 
     function setFilter(filter) {
@@ -146,11 +177,82 @@
         applyFilter();
     }
 
+    function onSortChange() {
+        sortMode = document.getElementById('sortMode').value;
+        if (sortMode === 'proximidade' && !userCoords) {
+            if (!navigator.geolocation) {
+                showToast('Geolocalização não suportada neste navegador.', 'error');
+            } else {
+                showToast('Obtendo sua localização...', '');
+                navigator.geolocation.getCurrentPosition(function(pos) {
+                    userCoords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+                    applyFilter();
+                }, function() {
+                    showToast('Não foi possível obter sua localização.', 'error');
+                });
+            }
+        }
+        applyFilter();
+    }
+
+    function limparFaixa() {
+        document.getElementById('valorMin').value = '';
+        document.getElementById('valorMax').value = '';
+        applyFilter();
+    }
+
+    // Distância em km entre duas coordenadas (Haversine)
+    function distanciaKm(lat1, lon1, lat2, lon2) {
+        var R = 6371, toRad = function(d){ return d * Math.PI / 180; };
+        var dLat = toRad(lat2 - lat1), dLon = toRad(lon2 - lon1);
+        var a = Math.sin(dLat/2)*Math.sin(dLat/2) +
+                Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)*Math.sin(dLon/2);
+        return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    }
+
+    function distDesafio(c) {
+        if (!userCoords || c.latitude == null || c.longitude == null) return Infinity;
+        return distanciaKm(userCoords.lat, userCoords.lng, parseFloat(c.latitude), parseFloat(c.longitude));
+    }
+
+    // Aplica status + faixa de valor + busca + ordenação
+    function getVisible() {
+        var list = allChallenges.slice();
+
+        // Status: "todos" = ativos (exclui encerrados); "historico" = encerrados
+        if (activeFilter === 'todos') {
+            list = list.filter(function(c){ return c.status !== 'encerrado'; });
+        } else if (activeFilter === 'historico') {
+            list = list.filter(function(c){ return c.status === 'encerrado'; });
+        } else {
+            list = list.filter(function(c){ return c.status === activeFilter; });
+        }
+
+        // Busca textual
+        var q = document.getElementById('searchQuery').value.toLowerCase().trim();
+        if (q) {
+            list = list.filter(function(c){
+                return c.titulo.toLowerCase().includes(q) || (c.local || '').toLowerCase().includes(q);
+            });
+        }
+
+        // Faixa de valor
+        var min = parseFloat(document.getElementById('valorMin').value);
+        var max = parseFloat(document.getElementById('valorMax').value);
+        if (!isNaN(min)) list = list.filter(function(c){ return parseFloat(c.valor) >= min; });
+        if (!isNaN(max)) list = list.filter(function(c){ return parseFloat(c.valor) <= max; });
+
+        // Ordenação
+        if (sortMode === 'valor_asc')      list.sort(function(a,b){ return a.valor - b.valor; });
+        else if (sortMode === 'valor_desc') list.sort(function(a,b){ return b.valor - a.valor; });
+        else if (sortMode === 'proximidade') list.sort(function(a,b){ return distDesafio(a) - distDesafio(b); });
+        else list.sort(function(a,b){ return (b.id||0) - (a.id||0); }); // recentes
+
+        return list;
+    }
+
     function applyFilter() {
-        var list = activeFilter === 'todos'
-            ? allChallenges
-            : allChallenges.filter(function(c){ return c.status === activeFilter; });
-        renderChallenges(list);
+        renderChallenges(getVisible());
     }
 
     function renderChallenges(list) {
@@ -176,11 +278,20 @@
             card.onclick = function() { showDetails(c); };
             card.onkeydown = function(e) { if (e.key === 'Enter') showDetails(c); };
             var inscritos = (c.participantes || []).length;
+            // Distância (só quando ordenando por proximidade e o desafio tem coordenadas)
+            var distHTML = '';
+            if (sortMode === 'proximidade' && userCoords) {
+                var d = distDesafio(c);
+                distHTML = isFinite(d)
+                    ? '<p>🧭 ' + (d < 1 ? Math.round(d*1000) + ' m' : d.toFixed(1) + ' km') + '</p>'
+                    : '<p style="opacity:0.6;">🧭 sem localização</p>';
+            }
             card.innerHTML =
                 '<div class="status-badge status-' + c.status + '">' + c.status.replace('_', ' ') + '</div>' +
                 '<h3>' + escHtml(c.titulo) + '</h3>' +
                 (c.local ? '<p>📍 ' + escHtml(c.local) + '</p>' : '') +
                 '<p>👥 ' + inscritos + '/' + (c.vagas || '-') + ' vagas</p>' +
+                distHTML +
                 '<div class="prize-tag">🏆 R$ ' + parseFloat(c.valor).toFixed(2) + '</div>';
             grid.appendChild(card);
         });
@@ -327,11 +438,18 @@
         }
 
         var endDate = document.getElementById('challengeEndDate').value;
+        var payload = { titulo: name, descricao: desc, local: location, valor: fee, vagas: vagas, id_criador: currentUser.id, data_encerramento: endDate || undefined };
+        if (novoDesafioCoords) {
+            payload.latitude = novoDesafioCoords.lat;
+            payload.longitude = novoDesafioCoords.lng;
+        }
         try {
-            await API.criarDesafio({ titulo: name, descricao: desc, local: location, valor: fee, vagas: vagas, id_criador: currentUser.id, data_encerramento: endDate || undefined });
+            await API.criarDesafio(payload);
             closeModal('createModal');
             document.querySelectorAll('#createModal input, #createModal textarea').forEach(function(el) { el.value = ''; });
             document.getElementById('challengeVagas').value = '2';
+            document.getElementById('geoStatus').textContent = '';
+            novoDesafioCoords = null;
             showToast('Desafio criado!', 'success');
             loadChallenges();
         } catch (err) {
@@ -340,14 +458,28 @@
         }
     }
 
+    // Captura a localização do criador para permitir busca por proximidade
+    function capturarLocalizacao() {
+        var status = document.getElementById('geoStatus');
+        if (!navigator.geolocation) {
+            status.textContent = 'Geolocalização não suportada neste navegador.';
+            return;
+        }
+        status.textContent = 'Obtendo localização...';
+        navigator.geolocation.getCurrentPosition(function(pos) {
+            novoDesafioCoords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+            status.textContent = '✓ Localização capturada — o desafio aparecerá em buscas por proximidade.';
+            status.style.color = 'var(--primary)';
+        }, function() {
+            status.textContent = 'Não foi possível obter a localização.';
+            status.style.color = '#F1948A';
+        });
+    }
+
     function searchChallenges() {
-        var q = document.getElementById('searchQuery').value.toLowerCase();
+        var q = document.getElementById('searchQuery').value;
         document.getElementById('clearSearch').style.display = q ? 'block' : 'none';
-        var base = activeFilter === 'todos' ? allChallenges : allChallenges.filter(function(c){ return c.status === activeFilter; });
-        var filtered = q ? base.filter(function(c) {
-            return c.titulo.toLowerCase().includes(q) || (c.local || '').toLowerCase().includes(q);
-        }) : base;
-        renderChallenges(filtered);
+        applyFilter();
     }
 
     function clearSearch() {

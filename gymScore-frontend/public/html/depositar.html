@@ -314,6 +314,17 @@
 
             <div id="step2Msg" class="gs-msg" style="margin-bottom:16px;" aria-live="polite"></div>
 
+            <!-- Botão de simulação (aparece só em ambiente de testes) -->
+            <button
+                id="btnSimular"
+                class="gs-btn gs-btn-primary gs-btn-full"
+                onclick="simularPagamento()"
+                style="margin-bottom:10px;display:none;background:#8E44AD;"
+                aria-label="Simular pagamento (ambiente de testes)"
+            >
+                🧪 Simular pagamento (teste)
+            </button>
+
             <button
                 class="gs-btn gs-btn-secondary gs-btn-full"
                 onclick="novoDeposito()"
@@ -332,6 +343,12 @@
     renderBottomNav('/perfil');
 
     var currentUser = Auth.getUser();
+    var asaasSandbox = false;
+
+    // Detecta se o backend está em ambiente de testes (mostra o botão de simular)
+    fetch('/health').then(function(r){ return r.json(); }).then(function(h){
+        asaasSandbox = !!h.asaas_teste;
+    }).catch(function(){});
     var valorSelecionado = 0;
     var pollingInterval  = null;
     var asaasPaymentID   = null;
@@ -405,10 +422,29 @@
             }
 
             mostrarStep(2);
+            document.getElementById('btnSimular').style.display = asaasSandbox ? 'block' : 'none';
             iniciarPolling();
         } catch (err) {
             msgEl.className = 'gs-msg error show';
             msgEl.textContent = err.message || 'Erro ao gerar PIX. Tente novamente.';
+            btnLoading(btn, false);
+        }
+    }
+
+    // ── Simular pagamento (apenas sandbox) ─────────────────────────────────
+    async function simularPagamento() {
+        if (!asaasPaymentID) return;
+        var btn = document.getElementById('btnSimular');
+        btnLoading(btn, true);
+        try {
+            await API.simularPagamento(asaasPaymentID);
+            // Dispara a verificação imediata (o polling também pegaria em até 5s)
+            await verificarPagamento();
+        } catch (err) {
+            var el = document.getElementById('step2Msg');
+            el.className = 'gs-msg error show';
+            el.textContent = err.message || 'Erro ao simular pagamento.';
+        } finally {
             btnLoading(btn, false);
         }
     }
