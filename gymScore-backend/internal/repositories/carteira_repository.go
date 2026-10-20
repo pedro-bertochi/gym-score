@@ -213,6 +213,16 @@ func (r *CarteiraRepository) Extrato(userID uint, pagina, limite int) ([]models.
 
 // IniciarSaque debita o valor (atômico, exige saldo) e grava o saque como 'pending'.
 func (r *CarteiraRepository) IniciarSaque(userID uint, valor int64, descricao string) (*models.Transacao, error) {
+	return r.IniciarSaqueComTarifa(userID, valor, 0, descricao)
+}
+
+// descricaoTarifaSaque é a chave que liga a linha da tarifa ao saque (o ledger não tem coluna de pai).
+func descricaoTarifaSaque(idSaque uint) string { return fmt.Sprintf("Tarifa do saque #%d", idSaque) }
+
+// IniciarSaqueComTarifa debita o valor E a tarifa na mesma transação (saldo insuficiente para
+// valor + tarifa derruba tudo: ErrSaldoInsuficiente). O saque fica 'pending'; a tarifa vira uma linha
+// `tarifa_saque`/'concluido' e uma linha em plataforma_receitas apontando para ela. tarifa <= 0 = sem tarifa.
+func (r *CarteiraRepository) IniciarSaqueComTarifa(userID uint, valor, tarifa int64, descricao string) (*models.Transacao, error) {
 	var t *models.Transacao
 	err := r.db.Transaction(func(tx *gorm.DB) error {
 		var err error
@@ -220,9 +230,30 @@ func (r *CarteiraRepository) IniciarSaque(userID uint, valor int64, descricao st
 			IDUsuario: userID, Tipo: models.TipoSaque, ValorCentavos: valor,
 			Status: models.TransacaoPending, Descricao: descricao,
 		})
-		return err
+		if err != nil || tarifa <= 0 {
+			return err
+		}
+		lt, err := r.Debitar(tx, Lancamento{
+			IDUsuario: userID, Tipo: models.TipoTarifaSaque, ValorCentavos: tarifa,
+			Descricao: descricaoTarifaSaque(t.ID),
+		})
+		if err != nil {
+			return err
+		}
+		return tx.Create(&models.PlataformaReceita{
+			Origem: models.ReceitaTarifaSaque, ValorCentavos: tarifa, IDTransacao: &lt.ID,
+		}).Error
 	})
 	return t, err
+}
+
+// TarifaDoSaque devolve a tarifa efetivamente cobrada do saque (0 se não houve ou se foi devolvida).
+func (r *CarteiraRepository) TarifaDoSaque(idSaque, userID uint) (int64, error) {
+	var v int64
+	err := r.db.Model(&models.Transacao{}).Select("COALESCE(-SUM(valor_centavos), 0)").
+		Where("id_usuario = ? AND tipo = ? AND descricao = ? AND status = ?",
+			userID, models.TipoTarifaSaque, descricaoTarifaSaque(idSaque), models.TransacaoConcluido).Scan(&v).Error
+	return v, err
 }
 
 // BuscarSaque devolve o saque se for do usuário (nil caso contrário).
@@ -270,6 +301,30 @@ func (r *CarteiraRepository) FalharSaque(id uint) (bool, error) {
 		if err := tx.Exec("UPDATE usuarios SET saldo_centavos = saldo_centavos + ? WHERE id = ?",
 			-t.ValorCentavos, t.IDUsuario).Error; err != nil {
 			return err
+		}
+		// A tarifa volta junto: a linha vira 'failed' (sai do ledger efetivo), o saldo recebe o valor de
+		// volta e a receita da plataforma é revertida. Só quem venceu o UPDATE acima chega aqui, então
+		// não há como devolver a tarifa duas vezes.
+		var tarifa models.Transacao
+		err := tx.Where("id_usuario = ? AND tipo = ? AND descricao = ? AND status = ?",
+			t.IDUsuario, models.TipoTarifaSaque, descricaoTarifaSaque(t.ID), models.TransacaoConcluido).
+			First(&tarifa).Error
+		switch {
+		case errors.Is(err, gorm.ErrRecordNotFound): // saque sem tarifa
+		case err != nil:
+			return err
+		default:
+			if err := tx.Model(&models.Transacao{}).Where("id = ?", tarifa.ID).
+				Update("status", models.TransacaoFailed).Error; err != nil {
+				return err
+			}
+			if err := tx.Exec("UPDATE usuarios SET saldo_centavos = saldo_centavos + ? WHERE id = ?",
+				-tarifa.ValorCentavos, t.IDUsuario).Error; err != nil {
+				return err
+			}
+			if err := tx.Where("id_transacao = ?", tarifa.ID).Delete(&models.PlataformaReceita{}).Error; err != nil {
+				return err
+			}
 		}
 		reembolsou = true
 		return nil

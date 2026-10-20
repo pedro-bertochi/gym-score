@@ -49,6 +49,26 @@ type Config struct {
 	SMTPUser string
 	SMTPPass string
 	SMTPFrom string
+
+	// ─── Taxas da plataforma ──────────────────────────────────────────────────
+	// PlataformaTaxaModo: "inscricao" (só a taxa sobre as inscrições) ou "inscricao_saque" (também a tarifa de saque).
+	PlataformaTaxaModo            string
+	PlataformaTaxaInscricaoPct    int   // % das inscrições retido (sai da parte da academia); gravado no desafio na criação
+	PlataformaTarifaSaqueCentavos int64 // tarifa debitada junto do saque; só vale no modo inscricao_saque
+}
+
+// Modos de taxa da plataforma.
+const (
+	TaxaModoInscricao      = "inscricao"
+	TaxaModoInscricaoSaque = "inscricao_saque"
+)
+
+// TarifaSaqueAtiva devolve a tarifa de saque em vigor (0 fora do modo inscricao_saque).
+func (c *Config) TarifaSaqueAtiva() int64 {
+	if c.PlataformaTaxaModo == TaxaModoInscricaoSaque && c.PlataformaTarifaSaqueCentavos > 0 {
+		return c.PlataformaTarifaSaqueCentavos
+	}
+	return 0
 }
 
 // IAHabilitada indica se há chave da Anthropic configurada.
@@ -70,6 +90,17 @@ func (c *Config) IsAsaasSandbox() bool {
 func (c *Config) Validar() error {
 	if c.IsProduction() && (c.JWTSecret == "" || c.JWTSecret == JWTSecretPadrao) {
 		return errors.New("JWT_SECRET deve ser definido com um valor forte quando APP_ENV=production")
+	}
+	switch c.PlataformaTaxaModo {
+	case "", TaxaModoInscricao, TaxaModoInscricaoSaque:
+	default:
+		return fmt.Errorf("PLATAFORMA_TAXA_MODO inválido %q (use %s ou %s)", c.PlataformaTaxaModo, TaxaModoInscricao, TaxaModoInscricaoSaque)
+	}
+	if c.PlataformaTaxaInscricaoPct < 0 || c.PlataformaTaxaInscricaoPct > 100 {
+		return errors.New("PLATAFORMA_TAXA_INSCRICAO_PCT deve estar entre 0 e 100")
+	}
+	if c.PlataformaTarifaSaqueCentavos < 0 {
+		return errors.New("PLATAFORMA_TARIFA_SAQUE_CENTAVOS não pode ser negativa")
 	}
 	return nil
 }
@@ -105,6 +136,15 @@ func Load() *Config {
 		SMTPUser: getEnv("SMTP_USER", ""),
 		SMTPPass: getEnv("SMTP_PASS", ""),
 		SMTPFrom: getEnv("SMTP_FROM", ""),
+	}
+	cfg.PlataformaTaxaModo = strings.ToLower(strings.TrimSpace(getEnvOrDefault("PLATAFORMA_TAXA_MODO", TaxaModoInscricao)))
+	cfg.PlataformaTaxaInscricaoPct = 10
+	if v, err := strconv.Atoi(strings.TrimSpace(os.Getenv("PLATAFORMA_TAXA_INSCRICAO_PCT"))); err == nil {
+		cfg.PlataformaTaxaInscricaoPct = v // fora de 0..100 é recusado por Validar
+	}
+	cfg.PlataformaTarifaSaqueCentavos = 200
+	if v, err := strconv.ParseInt(strings.TrimSpace(os.Getenv("PLATAFORMA_TARIFA_SAQUE_CENTAVOS")), 10, 64); err == nil {
+		cfg.PlataformaTarifaSaqueCentavos = v
 	}
 	cfg.RateLimitMax = 10
 	if v, err := strconv.Atoi(getEnv("RATE_LIMIT_MAX", "10")); err == nil && v >= 0 {

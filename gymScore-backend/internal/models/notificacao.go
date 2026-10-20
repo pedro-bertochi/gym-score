@@ -8,12 +8,23 @@ const (
 	NotifAmizadeAceita   = "amizade_aceita"
 	NotifConviteDesafio  = "convite_desafio"
 	NotifDesafioIniciado = "desafio_iniciado"
-	NotifVotacaoAberta   = "votacao_aberta"
 	NotifResultado       = "resultado_desafio"
-	NotifDesafioCancel   = "desafio_cancelado"
-	NotifDeposito        = "deposito_confirmado"
-	NotifSaqueConcluido  = "saque_concluido"
-	NotifSaqueFalhou     = "saque_falhou"
+	// Fluxo Academia -> Instrutor -> Atleta (Sprint 6)
+	NotifInscricaoConfirmada = "inscricao_confirmada"
+	NotifPresencaConfirmada  = "presenca_confirmada"
+	NotifInstrutorDesignado  = "instrutor_designado"
+	NotifInstrutorRemovido   = "instrutor_removido"
+	NotifInstrutorVinculado  = "instrutor_vinculado"
+	NotifDesafioCancel       = "desafio_cancelado"
+	// Financeiro e vaga de instrutor (Sprint 6)
+	NotifCandidaturaRecebida  = "candidatura_recebida"
+	NotifCandidaturaEscolhida = "candidatura_escolhida"
+	NotifCandidaturaRecusada  = "candidatura_recusada"
+	NotifPagamentoInstrutor   = "pagamento_instrutor"
+	NotifRepasseAcademia      = "repasse_academia"
+	NotifDeposito             = "deposito_confirmado"
+	NotifSaqueConcluido       = "saque_concluido"
+	NotifSaqueFalhou          = "saque_falhou"
 )
 
 // Notificacao é um aviso in-app para um usuário.

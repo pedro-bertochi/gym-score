@@ -105,7 +105,7 @@
             }, 1500);
         } catch (err) {
             msgEl.className = 'gs-msg error show';
-            msgEl.textContent = err.message || 'Erro ao atualizar perfil.';
+            msgEl.textContent = mensagemErro(err);
             btnLoading(btn, false);
         }
     }

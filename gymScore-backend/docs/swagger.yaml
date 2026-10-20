@@ -1,5 +1,12 @@
 basePath: /
 definitions:
+  models.AcademiaResumo:
+    properties:
+      id:
+        type: integer
+      nome_fantasia:
+        type: string
+    type: object
   models.AlterarSenhaRequest:
     properties:
       nova_senha:
@@ -58,6 +65,61 @@ definitions:
         minLength: 2
         type: string
     type: object
+  models.AvaliarDesafioRequest:
+    properties:
+      nota:
+        maximum: 5
+        minimum: 1
+        type: integer
+    required:
+    - nota
+    type: object
+  models.CandidatarRequest:
+    properties:
+      lance_centavos:
+        minimum: 0
+        type: integer
+      mensagem:
+        maxLength: 500
+        type: string
+    type: object
+  models.CandidatoResumo:
+    properties:
+      cref:
+        type: string
+      especialidade:
+        type: string
+      id:
+        type: integer
+      nome:
+        type: string
+      vinculado:
+        description: vinculado a esta academia
+        type: boolean
+    type: object
+  models.CandidaturaResponse:
+    properties:
+      atualizado_em:
+        type: string
+      criado_em:
+        type: string
+      id:
+        type: integer
+      id_desafio:
+        type: integer
+      instrutor:
+        allOf:
+        - $ref: '#/definitions/models.CandidatoResumo'
+        description: só na lista da academia dona
+      lance:
+        type: number
+      lance_centavos:
+        type: integer
+      mensagem:
+        type: string
+      status:
+        type: string
+    type: object
   models.ConvidarRequest:
     properties:
       id_amigo:
@@ -65,15 +127,87 @@ definitions:
     required:
     - id_amigo
     type: object
+  models.CriarAcademiaRequest:
+    properties:
+      cnpj:
+        description: Aceita com ou sem pontuação
+        type: string
+      email:
+        type: string
+      endereco:
+        type: string
+      nome:
+        maxLength: 100
+        minLength: 2
+        type: string
+      nome_fantasia:
+        maxLength: 150
+        minLength: 2
+        type: string
+      razao_social:
+        maxLength: 150
+        minLength: 2
+        type: string
+      senha:
+        minLength: 6
+        type: string
+      sobrenome:
+        maxLength: 100
+        type: string
+      telefone:
+        type: string
+    required:
+    - cnpj
+    - email
+    - nome
+    - nome_fantasia
+    - razao_social
+    - senha
+    type: object
   models.CriarDesafioRequest:
     properties:
-      data_encerramento:
-        description: DataEncerramento aceita "YYYY-MM-DD" (vale até o fim do dia)
-          ou RFC3339.
+      categoria:
+        maxLength: 30
+        type: string
+      data_evento:
+        description: |-
+          DataEvento aceita RFC3339 ("2026-11-20T09:00:00-03:00") ou "YYYY-MM-DDTHH:MM" / "YYYY-MM-DD HH:MM"
+          (horário local do servidor). Precisa estar no futuro.
         type: string
       descricao:
         maxLength: 2000
         type: string
+      dividir_pote:
+        type: boolean
+      id_instrutor:
+        description: |-
+          Instrutor: instrutor_selecao "designado" (padrão; exige id_instrutor vinculado) ou "vaga_aberta"
+          (sem id_instrutor; exige instrutor_teto_centavos; instrutores se candidatam com um lance <= teto).
+          instrutor_modo_pagamento: fixo (padrão) | percentual | fixo_percentual.
+        type: integer
+      instrutor_fixo_centavos:
+        maximum: 10000000
+        minimum: 0
+        type: integer
+      instrutor_modo_pagamento:
+        enum:
+        - fixo
+        - percentual
+        - fixo_percentual
+        type: string
+      instrutor_pct:
+        maximum: 100
+        minimum: 0
+        type: integer
+      instrutor_selecao:
+        enum:
+        - designado
+        - vaga_aberta
+        type: string
+      instrutor_teto_centavos:
+        maximum: 10000000
+        minimum: 0
+        type: integer
       latitude:
         maximum: 90
         minimum: -90
@@ -85,21 +219,52 @@ definitions:
         maximum: 180
         minimum: -180
         type: number
+      percentual_pote:
+        maximum: 100
+        minimum: 0
+        type: integer
+      posicoes_podio:
+        maximum: 5
+        minimum: 1
+        type: integer
+      premio_fixo_centavos:
+        description: |-
+          Premiação: prêmio fixo (reservado do saldo da academia) + parcela das inscrições (percentual_pote
+          de T, se dividir_pote). dividir_pote omitido = true; percentual_pote omitido = o máximo permitido
+          (100 - taxa da plataforma - instrutor_pct). Com dividir_pote=false, percentual_pote é gravado 0.
+        maximum: 10000000
+        minimum: 0
+        type: integer
       titulo:
         maxLength: 200
         minLength: 3
         type: string
       vagas:
-        maximum: 50
+        maximum: 500
         minimum: 2
         type: integer
       valor_entrada_centavos:
         maximum: 1000000
-        minimum: 100
+        minimum: 0
         type: integer
     required:
+    - data_evento
+    - local
+    - posicoes_podio
     - titulo
-    - valor_entrada_centavos
+    - vagas
+    type: object
+  models.CriarInstrutorRequest:
+    properties:
+      cref:
+        maxLength: 20
+        minLength: 4
+        type: string
+      especialidade:
+        maxLength: 100
+        type: string
+    required:
+    - cref
     type: object
   models.CriarUsuarioRequest:
     properties:
@@ -138,12 +303,457 @@ definitions:
     - senha
     - sobrenome
     type: object
+  models.DashboardAcademiaResponse:
+    properties:
+      academia:
+        $ref: '#/definitions/models.AcademiaResumo'
+      avaliacao_media:
+        description: AvaliacaoMedia (0 a 5, duas casas) considera só avaliações dos
+          desafios desta academia.
+        type: number
+      avaliacoes_total:
+        type: integer
+      desafios_por_status:
+        additionalProperties:
+          format: int64
+          type: integer
+        type: object
+      inscritos_mes:
+        description: 'InscritosMes: inscrições feitas no mês corrente em desafios
+          não cancelados da academia.'
+        type: integer
+      instrutores_vinculados:
+        type: integer
+      pote_em_jogo:
+        type: number
+      pote_em_jogo_centavos:
+        description: 'PoteEmJogo: soma das entradas dos inscritos em desafios abertos
+          ou em andamento.'
+        type: integer
+      proximos_eventos:
+        description: 'ProximosEventos: até 5 desafios abertos com data_evento futura,
+          do mais próximo ao mais distante.'
+        items:
+          $ref: '#/definitions/models.DesafioResponse'
+        type: array
+      taxa_presenca:
+        description: |-
+          TaxaPresenca é o percentual (0 a 100, uma casa) de inscritos presentes nos desafios em andamento
+          e encerrados; 0 quando não há base.
+        type: number
+      total_desafios:
+        description: TotalDesafios soma todos os status; DesafiosPorStatus sempre
+          traz as 4 chaves (0 quando vazio).
+        type: integer
+    type: object
+  models.DesafioResponse:
+    properties:
+      academia:
+        allOf:
+        - $ref: '#/definitions/models.AcademiaResumo'
+        description: null só em legados
+      categoria:
+        type: string
+      criado_em:
+        type: string
+      data_evento:
+        description: null só em desafios legados
+        type: string
+      descricao:
+        type: string
+      financeiro:
+        $ref: '#/definitions/models.FinanceiroResponse'
+      id:
+        type: integer
+      instrutor:
+        allOf:
+        - $ref: '#/definitions/models.InstrutorResumo'
+        description: null se sem instrutor (legados)
+      instrutor_ganho:
+        $ref: '#/definitions/models.GanhoInstrutorResponse'
+      instrutor_selecao:
+        type: string
+      latitude:
+        type: number
+      local:
+        type: string
+      longitude:
+        type: number
+      participantes:
+        items:
+          $ref: '#/definitions/models.ParticipanteResponse'
+        type: array
+      participantes_count:
+        type: integer
+      pode_avaliar:
+        type: boolean
+      pode_cancelar:
+        type: boolean
+      pode_candidatar:
+        description: |-
+          PodeCandidatar: instrutor pode dar lance (vaga aberta, desafio aberto, evento futuro).
+          PodeEscolherInstrutor: academia dona pode escolher entre os candidatos.
+        type: boolean
+      pode_editar:
+        type: boolean
+      pode_entrar:
+        description: Flags de ação para o usuário logado
+        type: boolean
+      pode_escolher_instrutor:
+        type: boolean
+      pode_iniciar:
+        type: boolean
+      pode_lancar_podio:
+        type: boolean
+      pode_marcar_presenca:
+        type: boolean
+      pode_sair:
+        type: boolean
+      podio:
+        items:
+          $ref: '#/definitions/models.PodioResponse'
+        type: array
+      posicoes_podio:
+        type: integer
+      pote:
+        type: number
+      pote_centavos:
+        type: integer
+      premiacao:
+        allOf:
+        - $ref: '#/definitions/models.PremiacaoResponse'
+        description: |-
+          Premiacao (todos): prêmio total previsto + lista por posição. Financeiro só vai para a academia
+          dona, InstrutorGanho para o instrutor designado e Vaga para instrutores (oferta da vaga aberta).
+      premiacao_prevista_centavos:
+        description: |-
+          PremiacaoPrevistaCentavos tem posicoes_podio itens: a divisão do pote ATUAL pela tabela da
+          quantidade de posições (se houver menos presentes que posições, os valores finais são renormalizados).
+        items:
+          type: integer
+        type: array
+      presentes_count:
+        type: integer
+      seu_codigo_ingresso:
+        description: só para o próprio atleta inscrito
+        type: string
+      status:
+        $ref: '#/definitions/models.StatusDesafio'
+      titulo:
+        type: string
+      vaga:
+        $ref: '#/definitions/models.VagaInstrutorResponse'
+      vaga_instrutor_aberta:
+        description: 'VagaInstrutorAberta: a vaga de instrutor segue aberta (sem escolhido);
+          o desafio não pode ser iniciado.'
+        type: boolean
+      vagas:
+        type: integer
+      valor_entrada:
+        type: number
+      valor_entrada_centavos:
+        type: integer
+      voce_participa:
+        description: Do usuário logado
+        type: boolean
+      voce_presente:
+        type: boolean
+    type: object
+  models.EditarDesafioRequest:
+    properties:
+      categoria:
+        maxLength: 30
+        type: string
+      data_evento:
+        type: string
+      descricao:
+        maxLength: 2000
+        type: string
+      dividir_pote:
+        type: boolean
+      id_instrutor:
+        minimum: 1
+        type: integer
+      instrutor_fixo_centavos:
+        maximum: 10000000
+        minimum: 0
+        type: integer
+      instrutor_modo_pagamento:
+        enum:
+        - fixo
+        - percentual
+        - fixo_percentual
+        type: string
+      instrutor_pct:
+        maximum: 100
+        minimum: 0
+        type: integer
+      instrutor_teto_centavos:
+        maximum: 10000000
+        minimum: 0
+        type: integer
+      latitude:
+        maximum: 90
+        minimum: -90
+        type: number
+      local:
+        maxLength: 200
+        minLength: 1
+        type: string
+      longitude:
+        maximum: 180
+        minimum: -180
+        type: number
+      percentual_pote:
+        maximum: 100
+        minimum: 0
+        type: integer
+      posicoes_podio:
+        maximum: 5
+        minimum: 1
+        type: integer
+      premio_fixo_centavos:
+        description: |-
+          Financeiro (mesmas regras da criação; a taxa da plataforma fica a do snapshot). Com atletas
+          inscritos o prêmio só pode aumentar. Depois de escolhido o instrutor da vaga aberta, os campos
+          instrutor_* ficam travados.
+        maximum: 10000000
+        minimum: 0
+        type: integer
+      titulo:
+        maxLength: 200
+        minLength: 3
+        type: string
+      vagas:
+        maximum: 500
+        minimum: 2
+        type: integer
+      valor_entrada_centavos:
+        maximum: 1000000
+        minimum: 0
+        type: integer
+    type: object
   models.EsqueciSenhaRequest:
     properties:
       email:
         type: string
     required:
     - email
+    type: object
+  models.FinanceiroResponse:
+    properties:
+      arrecadacao_centavos:
+        description: entradas dos inscritos (T)
+        type: integer
+      candidaturas_pendentes:
+        type: integer
+      dividir_pote:
+        type: boolean
+      instrutor_fixo_centavos:
+        type: integer
+      instrutor_modo_pagamento:
+        type: string
+      instrutor_pct:
+        type: integer
+      instrutor_pct_centavos:
+        type: integer
+      instrutor_selecao:
+        type: string
+      instrutor_teto_centavos:
+        type: integer
+      instrutor_total_centavos:
+        type: integer
+      liquido_previsto_centavos:
+        description: o que a academia recebe de volta no encerramento
+        type: integer
+      percentual_pote:
+        type: integer
+      pote_premio_centavos:
+        description: parcela das inscrições que vai para os atletas
+        type: integer
+      premio_fixo_centavos:
+        type: integer
+      premio_total_centavos:
+        type: integer
+      reserva_centavos:
+        description: garantia debitada do saldo da academia
+        type: integer
+      resultado_previsto_centavos:
+        description: liquido - reserva (negativo = custo da academia)
+        type: integer
+      taxa_plataforma_centavos:
+        type: integer
+      taxa_plataforma_pct:
+        type: integer
+    type: object
+  models.GanhoInstrutorResponse:
+    properties:
+      fixo_centavos:
+        type: integer
+      modo_pagamento:
+        type: string
+      pct:
+        type: integer
+      pct_centavos:
+        description: previsto, sobre as inscrições atuais
+        type: integer
+      total_previsto_centavos:
+        type: integer
+    type: object
+  models.HistoricoDesafioResponse:
+    properties:
+      academia:
+        $ref: '#/definitions/models.AcademiaResumo'
+      categoria:
+        type: string
+      criado_em:
+        type: string
+      data_encerramento:
+        type: string
+      data_evento:
+        type: string
+      id:
+        type: integer
+      local:
+        type: string
+      marca:
+        type: string
+      participantes_count:
+        type: integer
+      posicao:
+        description: Posicao/Marca vêm do pódio; null/"" quando o usuário ficou fora
+          do pódio.
+        type: integer
+      premio:
+        type: number
+      premio_centavos:
+        type: integer
+      presente:
+        description: 'Presente: o usuário esteve no evento (só presentes entram no
+          pódio).'
+        type: boolean
+      status:
+        $ref: '#/definitions/models.StatusDesafio'
+      titulo:
+        type: string
+      valor_entrada:
+        type: number
+      valor_entrada_centavos:
+        type: integer
+      vencedor:
+        description: 1º colocado
+        type: boolean
+    type: object
+  models.IngressoResponse:
+    properties:
+      academia:
+        allOf:
+        - $ref: '#/definitions/models.AcademiaResumo'
+        description: null só em legados
+      categoria:
+        type: string
+      codigo_ingresso:
+        description: 'CodigoIngresso é o conteúdo do QR (32 hex): o mesmo `seu_codigo_ingresso`
+          do desafio.'
+        type: string
+      data:
+        description: Data é a data do evento (data_evento); null só em desafios legados
+          sem data.
+        type: string
+      id_desafio:
+        type: integer
+      local:
+        type: string
+      presente:
+        type: boolean
+      presente_em:
+        type: string
+      status:
+        type: string
+      titulo:
+        type: string
+      valor_entrada_centavos:
+        type: integer
+    type: object
+  models.InstrutorResponse:
+    properties:
+      autonomo:
+        description: true = sem vínculo com academia
+        type: boolean
+      cref:
+        type: string
+      especialidade:
+        type: string
+      id:
+        type: integer
+      nome:
+        type: string
+      sobrenome:
+        type: string
+    type: object
+  models.InstrutorResumo:
+    properties:
+      id:
+        type: integer
+      nome:
+        type: string
+    type: object
+  models.InstrutorVinculadoResponse:
+    properties:
+      cref:
+        type: string
+      desafios_ativos:
+        description: desafios abertos ou em andamento em que ele é o instrutor
+        type: integer
+      email:
+        type: string
+      especialidade:
+        type: string
+      id:
+        type: integer
+      id_usuario:
+        type: integer
+      nome:
+        type: string
+      sobrenome:
+        type: string
+    type: object
+  models.LancarPodioRequest:
+    properties:
+      posicoes:
+        items:
+          $ref: '#/definitions/models.PodioEntrada'
+        maxItems: 5
+        minItems: 1
+        type: array
+    required:
+    - posicoes
+    type: object
+  models.ListaDesafiosResponse:
+    properties:
+      itens:
+        items:
+          $ref: '#/definitions/models.DesafioResponse'
+        type: array
+      limite:
+        type: integer
+      pagina:
+        type: integer
+      total:
+        type: integer
+    type: object
+  models.ListaInstrutoresVinculadosResponse:
+    properties:
+      itens:
+        items:
+          $ref: '#/definitions/models.InstrutorVinculadoResponse'
+        type: array
+      limite:
+        type: integer
+      pagina:
+        type: integer
+      total:
+        type: integer
     type: object
   models.LoginRequest:
     properties:
@@ -168,6 +778,72 @@ definitions:
     required:
     - cpf
     - valor_centavos
+    type: object
+  models.ParticipanteResponse:
+    properties:
+      id:
+        type: integer
+      nome:
+        type: string
+      premio:
+        type: number
+      premio_centavos:
+        type: integer
+      presente:
+        type: boolean
+      presente_em:
+        type: string
+      sobrenome:
+        type: string
+      vencedor:
+        type: boolean
+    type: object
+  models.PodioEntrada:
+    properties:
+      id_participante:
+        type: integer
+      marca:
+        maxLength: 50
+        type: string
+    required:
+    - id_participante
+    - marca
+    type: object
+  models.PodioResponse:
+    properties:
+      id_participante:
+        type: integer
+      marca:
+        type: string
+      nome:
+        type: string
+      posicao:
+        type: integer
+      premio:
+        type: number
+      premio_centavos:
+        type: integer
+      sobrenome:
+        type: string
+    type: object
+  models.PremiacaoResponse:
+    properties:
+      por_posicao_centavos:
+        items:
+          type: integer
+        type: array
+      premio_total:
+        type: number
+      premio_total_centavos:
+        type: integer
+    type: object
+  models.PresencaRequest:
+    properties:
+      codigo_ingresso:
+        maxLength: 64
+        type: string
+      id_usuario:
+        type: integer
     type: object
   models.RedefinirSenhaRequest:
     properties:
@@ -206,12 +882,36 @@ definitions:
     - tipo_chave
     - valor_centavos
     type: object
-  models.VotarRequest:
+  models.StatusDesafio:
+    enum:
+    - aberto
+    - em_andamento
+    - encerrado
+    - cancelado
+    type: string
+    x-enum-varnames:
+    - StatusAberto
+    - StatusEmAndamento
+    - StatusEncerrado
+    - StatusCancelado
+  models.VagaInstrutorResponse:
     properties:
-      id_votado:
+      minha_candidatura:
+        $ref: '#/definitions/models.CandidaturaResponse'
+      modo_pagamento:
+        type: string
+      pct:
         type: integer
+      teto_centavos:
+        type: integer
+    type: object
+  models.VincularInstrutorRequest:
+    properties:
+      email:
+        maxLength: 150
+        type: string
     required:
-    - id_votado
+    - email
     type: object
   utils.APIResponse:
     properties:
@@ -237,6 +937,211 @@ info:
   title: GymScore API
   version: "1.0"
 paths:
+  /api/academia/dashboard:
+    get:
+      description: 'Indicadores só da academia logada: desafios por status, inscritos
+        no mês, pote em jogo, taxa de presença, avaliação média e próximos eventos.
+        Exige perfil academia.'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.DashboardAcademiaResponse'
+              type: object
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Dashboard da academia
+      tags:
+      - academia
+  /api/academia/desafios:
+    get:
+      description: Lista paginada dos desafios da academia logada, com filtro opcional
+        de status. Exige perfil academia.
+      parameters:
+      - description: aberto | em_andamento | encerrado | cancelado
+        in: query
+        name: status
+        type: string
+      - description: Página (1..)
+        in: query
+        name: pagina
+        type: integer
+      - description: Itens por página (padrão 20, máx. 100)
+        in: query
+        name: limite
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.ListaDesafiosResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Desafios da academia
+      tags:
+      - academia
+  /api/academia/instrutores:
+    get:
+      description: Lista paginada dos instrutores vinculados à academia logada, com
+        a contagem de desafios ativos de cada um. Exige perfil academia.
+      parameters:
+      - description: Página (1..)
+        in: query
+        name: pagina
+        type: integer
+      - description: Itens por página (padrão 20, máx. 100)
+        in: query
+        name: limite
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.ListaInstrutoresVinculadosResponse'
+              type: object
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Instrutores vinculados
+      tags:
+      - academia
+    post:
+      consumes:
+      - application/json
+      description: Vincula à academia logada a conta de instrutor com o e-mail informado
+        (instrutor sem vínculo). Notifica o instrutor. Exige perfil academia.
+      parameters:
+      - description: E-mail da conta de instrutor
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.VincularInstrutorRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.InstrutorVinculadoResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Vincular instrutor
+      tags:
+      - academia
+  /api/academia/instrutores/{id}:
+    delete:
+      description: Remove o vínculo do instrutor com a academia logada e o notifica.
+        Bloqueado (409) se ele for o instrutor designado de desafio aberto ou em andamento.
+        Exige perfil academia.
+      parameters:
+      - description: ID do instrutor (instrutores.id)
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Desvincular instrutor
+      tags:
+      - academia
+  /api/academias:
+    post:
+      consumes:
+      - application/json
+      description: Cria uma nova conta de perfil "academia" (usuário pessoa jurídica,
+        sem CPF) e o registro de academia vinculado
+      parameters:
+      - description: Dados da academia
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.CriarAcademiaRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Cadastrar academia
+      tags:
+      - academia
   /api/amigos:
     get:
       description: Amigos aceitos e solicitações pendentes do usuário do token (sem
@@ -437,13 +1342,26 @@ paths:
       - carteira
   /api/desafios:
     get:
-      description: Desafios abertos com vaga + os do próprio usuário. Paginação e
-        filtro no SQL.
+      description: Por padrão só desafios abertos com data_evento futura, do mais
+        próximo ao mais distante. Com status diferente de aberto, só os desafios desse
+        status em que o usuário está envolvido. Paginação e filtros no SQL.
       parameters:
-      - description: aberto|em_andamento|em_votacao|encerrado|cancelado
+      - description: aberto|em_andamento|encerrado|cancelado
         in: query
         name: status
         type: string
+      - description: geral|corrida|musculacao|crossfit|funcional|ciclismo|natacao|calistenia|luta|outros
+        in: query
+        name: categoria
+        type: string
+      - description: Texto livre (título, local, nome da academia)
+        in: query
+        name: q
+        type: string
+      - description: Só desafios desta academia
+        in: query
+        name: id_academia
+        type: integer
       - description: Página (1..)
         in: query
         name: pagina
@@ -459,14 +1377,14 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/utils.APIResponse'
-      summary: Listar desafios
+      summary: Feed de desafios
       tags:
       - desafios
     post:
       consumes:
       - application/json
-      description: O criador é o usuário do token e paga a entrada ao criar (débito
-        atômico).
+      description: Só a academia cria. A academia dona é a do token; id_instrutor
+        precisa estar vinculado a ela. A academia não paga entrada nem vira participante.
       parameters:
       - description: Dados do desafio
         in: body
@@ -481,11 +1399,14 @@ paths:
           description: Created
           schema:
             $ref: '#/definitions/utils.APIResponse'
-      summary: Criar desafio
+      summary: Criar desafio (perfil academia)
       tags:
       - desafios
   /api/desafios/{id}:
     get:
+      description: Desafio completo com participantes, flags pode_* e, se encerrado,
+        o pódio. Desafios não abertos só para participantes, academia dona e instrutor
+        designado.
       parameters:
       - description: ID do desafio
         in: path
@@ -502,26 +1423,71 @@ paths:
       summary: Detalhe do desafio
       tags:
       - desafios
-  /api/desafios/{id}/abrir-votacao:
-    post:
-      responses: {}
-      summary: Abrir votação (só criador)
+    patch:
+      consumes:
+      - application/json
+      description: Campos opcionais. Não altera a entrada se já há inscritos; vagas
+        não podem ficar abaixo dos inscritos. Trocar id_instrutor notifica o antigo
+        e o novo.
+      parameters:
+      - description: ID do desafio
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Campos a alterar
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.EditarDesafioRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Editar desafio aberto (academia dona)
       tags:
       - desafios
-  /api/desafios/{id}/apurar:
+  /api/desafios/{id}/avaliar:
     post:
-      responses: {}
-      summary: Apurar votação antecipadamente (só criador)
+      consumes:
+      - application/json
+      description: Nota de 1 a 5, só de quem esteve presente num desafio encerrado;
+        uma por atleta
+      parameters:
+      - description: ID do desafio
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Nota
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.AvaliarDesafioRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Avaliar desafio
       tags:
       - desafios
   /api/desafios/{id}/cancelar:
     post:
       responses: {}
-      summary: Cancelar desafio aberto (só criador; reembolsa todos)
+      summary: Cancelar desafio aberto ou em andamento (só academia dona; reembolsa
+        todos)
       tags:
       - desafios
-  /api/desafios/{id}/checkins:
-    get:
+  /api/desafios/{id}/candidaturas:
+    delete:
       parameters:
       - description: ID do desafio
         in: path
@@ -535,36 +1501,45 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/utils.APIResponse'
-      summary: Listar check-ins do desafio
+      summary: Retirar a própria candidatura (perfil instrutor)
       tags:
       - desafios
-    post:
-      consumes:
-      - multipart/form-data
-      description: 'multipart/form-data: texto?, latitude?, longitude?, foto? (JPG/PNG/WEBP
-        até 3 MB). Só participante, só em_andamento, 1 por dia.'
+    get:
+      description: Nome, CREF, especialidade, lance e mensagem; do menor para o maior
+        lance; sem as retiradas.
       parameters:
       - description: ID do desafio
         in: path
         name: id
         required: true
         type: integer
-      - description: Descrição (até 500 caracteres)
-        in: formData
-        name: texto
-        type: string
-      - description: Latitude
-        in: formData
-        name: latitude
-        type: number
-      - description: Longitude
-        in: formData
-        name: longitude
-        type: number
-      - description: Foto
-        in: formData
-        name: foto
-        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Candidatos da vaga de instrutor (só a academia dona)
+      tags:
+      - desafios
+    post:
+      consumes:
+      - application/json
+      description: Lance em centavos <= teto da vaga e mensagem opcional. 201 ao criar
+        (ou reabrir após retirar); 200 ao atualizar o lance de uma candidatura pendente.
+      parameters:
+      - description: ID do desafio
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Lance e mensagem
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.CandidatarRequest'
       produces:
       - application/json
       responses:
@@ -572,7 +1547,33 @@ paths:
           description: Created
           schema:
             $ref: '#/definitions/utils.APIResponse'
-      summary: Registrar check-in (prova de treino)
+      summary: Candidatar-se à vaga de instrutor (perfil instrutor)
+      tags:
+      - desafios
+  /api/desafios/{id}/candidaturas/{cid}/escolher:
+    post:
+      description: O lance vira o valor fixo do instrutor; a diferença teto - lance
+        volta para a academia. Notifica o escolhido e os não escolhidos. Devolve o
+        desafio atualizado.
+      parameters:
+      - description: ID do desafio
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: ID da candidatura
+        in: path
+        name: cid
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Escolher o instrutor da vaga (só a academia dona)
       tags:
       - desafios
   /api/desafios/{id}/convidar:
@@ -587,45 +1588,30 @@ paths:
         schema:
           $ref: '#/definitions/models.ConvidarRequest'
       responses: {}
-      summary: Convidar um amigo para o desafio aberto (só criador)
+      summary: Convidar um amigo para o desafio aberto (atleta)
       tags:
       - desafios
   /api/desafios/{id}/entrar:
     post:
       responses: {}
-      summary: Entrar no desafio (debita a entrada)
+      summary: Inscrever-se no desafio (só atleta; debita a entrada e gera o ingresso)
       tags:
       - desafios
   /api/desafios/{id}/iniciar:
     post:
       responses: {}
-      summary: Iniciar desafio (só criador, mínimo 2 participantes)
+      summary: Iniciar desafio (instrutor designado ou academia dona; fecha as inscrições)
       tags:
       - desafios
-  /api/desafios/{id}/sair:
-    post:
-      responses: {}
-      summary: Sair do desafio aberto (reembolsa a entrada)
-      tags:
-      - desafios
-  /api/desafios/{id}/votar:
-    post:
-      consumes:
-      - application/json
-      parameters:
-      - description: Participante votado
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/models.VotarRequest'
-      responses: {}
-      summary: Votar em outro participante
-      tags:
-      - desafios
-  /api/desafios/meus:
+  /api/desafios/{id}/podio:
     get:
-      description: Desafios que o usuário do token criou ou participa (qualquer status)
+      description: Lista vazia enquanto o desafio não estiver encerrado
+      parameters:
+      - description: ID do desafio
+        in: path
+        name: id
+        required: true
+        type: integer
       produces:
       - application/json
       responses:
@@ -633,9 +1619,301 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/utils.APIResponse'
-      summary: Listar meus desafios
+      summary: Pódio do desafio
       tags:
       - desafios
+    post:
+      consumes:
+      - application/json
+      description: Exatamente min(posicoes_podio, presentes) posições, só presentes,
+        sem repetir, marca obrigatória. Divide o pote, credita os prêmios, aplica
+        pontos e encerra o desafio. Devolve o desafio encerrado.
+      parameters:
+      - description: ID do desafio
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Posições (índice 0 = 1º lugar)
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.LancarPodioRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Lançar pódio (instrutor designado ou academia dona)
+      tags:
+      - desafios
+  /api/desafios/{id}/presenca:
+    post:
+      consumes:
+      - application/json
+      description: 'Corpo: {"codigo_ingresso": "<QR>"} OU {"id_usuario": N}. Idempotente.
+        Em aberto só no dia do evento; em andamento a qualquer momento.'
+      parameters:
+      - description: ID do desafio
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Ingresso ou usuário
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.PresencaRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Marcar presença (instrutor designado ou academia dona)
+      tags:
+      - desafios
+  /api/desafios/{id}/presentes:
+    get:
+      parameters:
+      - description: ID do desafio
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Atletas presentes (instrutor designado ou academia dona)
+      tags:
+      - desafios
+  /api/desafios/{id}/sair:
+    post:
+      responses: {}
+      summary: Sair do desafio aberto (só atleta; reembolsa a entrada)
+      tags:
+      - desafios
+  /api/desafios/categorias:
+    get:
+      description: Lista as categorias aceitas (chips do feed)
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Categorias de desafio
+      tags:
+      - desafios
+  /api/desafios/meus:
+    get:
+      description: Desafios em que o usuário do token participa (atleta, com seu_codigo_ingresso
+        e status), é a academia dona ou o instrutor designado (qualquer status)
+      parameters:
+      - description: aberto|em_andamento|encerrado|cancelado
+        in: query
+        name: status
+        type: string
+      - description: Categoria
+        in: query
+        name: categoria
+        type: string
+      - description: Texto livre
+        in: query
+        name: q
+        type: string
+      - description: Página (1..)
+        in: query
+        name: pagina
+        type: integer
+      - description: Itens por página (máx. 100)
+        in: query
+        name: limite
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Meus desafios
+      tags:
+      - desafios
+  /api/desafios/recomendados:
+    get:
+      description: Retorna até 5 desafios recomendados com razão textual personalizada
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Desafios recomendados
+      tags:
+      - desafios
+  /api/instrutor/agenda:
+    get:
+      description: 'Desafios em que o instrutor logado é o instrutor designado (DesafioResponse),
+        paginados. Sem status: abertos e em andamento por data_evento crescente. Exige
+        perfil instrutor.'
+      parameters:
+      - description: aberto | em_andamento | encerrado | cancelado
+        in: query
+        name: status
+        type: string
+      - description: Página (1..)
+        in: query
+        name: pagina
+        type: integer
+      - description: Itens por página (padrão 20, máx. 100)
+        in: query
+        name: limite
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.ListaDesafiosResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Agenda do instrutor
+      tags:
+      - instrutores
+  /api/instrutor/vagas:
+    get:
+      description: 'Desafios abertos, com data futura, vaga de instrutor aberta e
+        sem escolhido, do evento mais próximo ao mais distante. Cada item traz `vaga`
+        (teto, modo de pagamento, % e a candidatura do próprio instrutor). Filtros:
+        categoria, q, id_academia, pagina, limite.'
+      parameters:
+      - description: Categoria
+        in: query
+        name: categoria
+        type: string
+      - description: Texto livre (título, local, academia)
+        in: query
+        name: q
+        type: string
+      - description: Só desta academia
+        in: query
+        name: id_academia
+        type: integer
+      - description: Página (1..)
+        in: query
+        name: pagina
+        type: integer
+      - description: Itens por página (máx. 100)
+        in: query
+        name: limite
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Vagas de instrutor abertas (perfil instrutor)
+      tags:
+      - instrutor
+  /api/instrutores:
+    get:
+      description: Lista os instrutores cadastrados (nome, CREF, especialidade e se
+        são autônomos). Exige login; não expõe e-mail nem CPF. Para os instrutores
+        da sua academia use GET /api/academia/instrutores.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/models.InstrutorResponse'
+                  type: array
+              type: object
+      security:
+      - BearerAuth: []
+      summary: Diretório de instrutores
+      tags:
+      - instrutores
+    post:
+      consumes:
+      - application/json
+      description: 'O usuário LOGADO (JWT) ativa o próprio perfil de instrutor (autônomo).
+        Não aceita id_usuario nem id_academia: o vínculo com a academia é feito por
+        ela em POST /api/academia/instrutores. Só contas de atleta, sem inscrição
+        em desafio aberto/em andamento. O perfil muda na hora (não precisa novo login).'
+      parameters:
+      - description: CREF e especialidade
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/models.CriarInstrutorRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.InstrutorResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      security:
+      - BearerAuth: []
+      summary: Tornar-se instrutor
+      tags:
+      - instrutores
   /api/login:
     post:
       consumes:
@@ -788,6 +2066,20 @@ paths:
       summary: Simular pagamento PIX (somente sandbox)
       tags:
       - pagamento
+  /api/plataforma/taxas:
+    get:
+      description: taxa_inscricao_pct é gravada no desafio na criação; tarifa_saque_centavos
+        é 0 fora do modo inscricao_saque.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Taxas vigentes da plataforma
+      tags:
+      - plataforma
   /api/ranking/amigos:
     get:
       description: Usuário do token + amigos aceitos. Pontos = exercícios concluídos
@@ -881,6 +2173,53 @@ paths:
       summary: Dados públicos de um usuário
       tags:
       - usuarios
+  /api/usuarios/{id}/historico:
+    get:
+      description: 'Desafios encerrados em que o usuário esteve inscrito, com o resultado
+        DELE: posição no pódio, marca e prêmio (perfil público; não expõe os demais
+        participantes)'
+      parameters:
+      - description: ID do usuário
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/models.HistoricoDesafioResponse'
+                  type: array
+              type: object
+      summary: Histórico de desafios
+      tags:
+      - usuarios
+  /api/usuarios/{id}/publico:
+    get:
+      description: Retorna dados públicos de um usuário pelo ID (sem CPF, email, saldo)
+      parameters:
+      - description: ID do usuário
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Perfil público
+      tags:
+      - usuarios
   /api/usuarios/busca:
     get:
       description: Mínimo 2 caracteres, máximo 20 resultados, apenas id/nome/sobrenome
@@ -898,6 +2237,51 @@ paths:
           schema:
             $ref: '#/definitions/utils.APIResponse'
       summary: Buscar usuários por nome
+      tags:
+      - usuarios
+  /api/usuarios/buscar:
+    get:
+      description: Busca usuários por nome ou username (tempo real)
+      parameters:
+      - description: Texto de busca
+        in: query
+        name: q
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Buscar usuários
+      tags:
+      - usuarios
+  /api/usuarios/ingressos:
+    get:
+      description: 'Inscrições do usuário logado como ingressos: codigo_ingresso REAL
+        (conteúdo do QR lido pelo instrutor em POST /desafios/{id}/presenca), dados
+        do evento, academia e presença'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/utils.APIResponse'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/models.IngressoResponse'
+                  type: array
+              type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Listar ingressos do usuário
       tags:
       - usuarios
   /api/usuarios/me:
@@ -956,6 +2340,19 @@ paths:
           schema:
             $ref: '#/definitions/utils.APIResponse'
       summary: Alterar senha
+      tags:
+      - usuarios
+  /api/usuarios/ultima-vez:
+    patch:
+      description: Atualiza o timestamp de última vez online do usuário autenticado
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/utils.APIResponse'
+      summary: Heartbeat de presença
       tags:
       - usuarios
   /api/webhooks/asaas:

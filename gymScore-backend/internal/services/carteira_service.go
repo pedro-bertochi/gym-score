@@ -31,6 +31,8 @@ type carteiraService struct {
 	asaas    AsaasGateway
 	notif    Notificador
 	agora    func() time.Time
+	// tarifaSaque é debitada junto de cada saque (0 = sem tarifa; PLATAFORMA_TAXA_MODO=inscricao_saque).
+	tarifaSaque int64
 }
 
 // NovoCarteiraService cria o serviço de carteira.
@@ -39,8 +41,13 @@ func NovoCarteiraService(
 	usuarios repositories.UsuarioRepository,
 	asaas AsaasGateway,
 	notif Notificador,
+	tarifaSaqueCentavos int64,
 ) CarteiraService {
-	return &carteiraService{carteira: carteira, usuarios: usuarios, asaas: asaas, notif: notif, agora: time.Now}
+	if tarifaSaqueCentavos < 0 {
+		tarifaSaqueCentavos = 0
+	}
+	return &carteiraService{carteira: carteira, usuarios: usuarios, asaas: asaas, notif: notif, agora: time.Now,
+		tarifaSaque: tarifaSaqueCentavos}
 }
 
 func (s *carteiraService) Saldo(userID uint) (*models.SaldoResponse, error) {
@@ -48,7 +55,7 @@ func (s *carteiraService) Saldo(userID uint) (*models.SaldoResponse, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &models.SaldoResponse{SaldoCentavos: v, Saldo: utils.CentavosParaReais(v)}, nil
+	return &models.SaldoResponse{SaldoCentavos: v, Saldo: utils.CentavosParaReais(v), TarifaSaqueCentavos: s.tarifaSaque}, nil
 }
 
 func (s *carteiraService) Extrato(userID uint, pagina, limite int) (*models.ExtratoResponse, error) {
@@ -64,6 +71,17 @@ func (s *carteiraService) Extrato(userID uint, pagina, limite int) (*models.Extr
 	return resp, nil
 }
 
+// saqueResponse monta o DTO do saque, com a tarifa efetivamente cobrada (0 se devolvida).
+func (s *carteiraService) saqueResponse(t *models.Transacao) (*models.SaqueResponse, error) {
+	r := paraSaqueResponse(t)
+	tarifa, err := s.carteira.TarifaDoSaque(t.ID, t.IDUsuario)
+	if err != nil {
+		return nil, err
+	}
+	r.TarifaCentavos = tarifa
+	return r, nil
+}
+
 func paraSaqueResponse(t *models.Transacao) *models.SaqueResponse {
 	valor := -t.ValorCentavos
 	r := &models.SaqueResponse{ID: t.ID, ValorCentavos: valor, Valor: utils.CentavosParaReais(valor),
@@ -75,15 +93,21 @@ func paraSaqueResponse(t *models.Transacao) *models.SaqueResponse {
 }
 
 // Sacar debita ANTES de chamar o Asaas (o dinheiro nunca fica disponível em dobro) e
-// reembolsa automaticamente se a criação da transferência falhar.
+// reembolsa automaticamente se a criação da transferência falhar. Com tarifa de saque, o débito é
+// valor + tarifa (o Asaas recebe só o valor pedido); se o PIX falhar, valor e tarifa voltam e a
+// receita da plataforma é revertida.
 func (s *carteiraService) Sacar(userID uint, req *models.SaqueRequest) (*models.SaqueResponse, error) {
 	chave := strings.TrimSpace(req.ChavePix)
 	if len(chave) < 3 {
 		return nil, erroRequisicao("Chave PIX inválida")
 	}
-	t, err := s.carteira.IniciarSaque(userID, req.ValorCentavos, "Saque PIX ("+req.TipoChave+")")
+	t, err := s.carteira.IniciarSaqueComTarifa(userID, req.ValorCentavos, s.tarifaSaque, "Saque PIX ("+req.TipoChave+")")
 	if err != nil {
 		if errors.Is(err, repositories.ErrSaldoInsuficiente) {
+			if s.tarifaSaque > 0 {
+				return nil, erro(ErroSaldoInsuficiente.Status, fmt.Sprintf("Saldo insuficiente: o saque de %s mais a tarifa de %s exige %s",
+					reaisBR(req.ValorCentavos), reaisBR(s.tarifaSaque), reaisBR(req.ValorCentavos+s.tarifaSaque)))
+			}
 			return nil, ErroSaldoInsuficiente
 		}
 		return nil, err
@@ -114,7 +138,7 @@ func (s *carteiraService) falhar(id, userID uint, valor int64, motivo string) {
 	}
 	if reembolsou {
 		s.notif.Notificar(userID, models.NotifSaqueFalhou, "Saque não concluído",
-			fmt.Sprintf("Seu saque de %s falhou e o valor voltou ao saldo. %s", reaisBR(valor), motivo), "/carteira")
+			fmt.Sprintf("Seu saque de %s falhou e o valor (e a tarifa, se houve) voltou ao saldo. %s", reaisBR(valor), motivo), "/carteira")
 	}
 }
 
@@ -138,7 +162,7 @@ func (s *carteiraService) aplicarStatus(userID uint, t *models.Transacao, status
 	if err != nil {
 		return nil, err
 	}
-	return paraSaqueResponse(atual), nil
+	return s.saqueResponse(atual)
 }
 
 func (s *carteiraService) ConsultarSaque(userID, id uint) (*models.SaqueResponse, error) {
@@ -150,7 +174,7 @@ func (s *carteiraService) ConsultarSaque(userID, id uint) (*models.SaqueResponse
 		return nil, erroNaoEncontrado("Saque não encontrado")
 	}
 	if t.Status != models.TransacaoPending {
-		return paraSaqueResponse(t), nil
+		return s.saqueResponse(t)
 	}
 	if t.AsaasTransferID == nil {
 		// Débito feito, mas a transferência nunca foi criada: após o prazo, reembolsa.
@@ -161,13 +185,13 @@ func (s *carteiraService) ConsultarSaque(userID, id uint) (*models.SaqueResponse
 				return nil, err
 			}
 		}
-		return paraSaqueResponse(t), nil
+		return s.saqueResponse(t)
 	}
 	tr, err := s.asaas.BuscarTransferencia(*t.AsaasTransferID)
 	if err != nil {
 		// Mantém pending; tenta de novo no próximo ciclo de polling
 		log.Printf("[SAQUE] falha ao consultar transferência %s: %v", *t.AsaasTransferID, err)
-		return paraSaqueResponse(t), nil
+		return s.saqueResponse(t)
 	}
 	return s.aplicarStatus(userID, t, tr.Status)
 }

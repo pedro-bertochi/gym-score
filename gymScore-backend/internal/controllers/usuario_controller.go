@@ -278,11 +278,11 @@ func (ctrl *UsuarioController) BuscarPublico(c *fiber.Ctx) error {
 
 // HistoricoDesafios godoc
 // @Summary     Histórico de desafios
-// @Description Retorna os desafios encerrados de outro usuário (perfil público)
+// @Description Desafios encerrados em que o usuário esteve inscrito, com o resultado DELE: posição no pódio, marca e prêmio (perfil público; não expõe os demais participantes)
 // @Tags        usuarios
 // @Produce     json
 // @Param       id path int true "ID do usuário"
-// @Success     200 {object} utils.APIResponse
+// @Success     200 {object} utils.APIResponse{data=[]models.HistoricoDesafioResponse}
 // @Router      /api/usuarios/{id}/historico [get]
 func (ctrl *UsuarioController) HistoricoDesafios(c *fiber.Ctx) error {
 	id, err := strconv.ParseUint(c.Params("id"), 10, 32)
@@ -291,7 +291,7 @@ func (ctrl *UsuarioController) HistoricoDesafios(c *fiber.Ctx) error {
 	}
 	desafios, err := ctrl.service.HistoricoDesafios(uint(id), ctrl.desafioRepo)
 	if err != nil {
-		return utils.Error(c, fiber.StatusInternalServerError, err.Error())
+		return responderErro(c, err)
 	}
 	return utils.Success(c, fiber.StatusOK, "Histórico encontrado", desafios)
 }
@@ -321,10 +321,10 @@ func (ctrl *UsuarioController) BuscarPorTermo(c *fiber.Ctx) error {
 
 // Ingressos godoc
 // @Summary     Listar ingressos do usuário
-// @Description Retorna todos os desafios em que o usuário logado é participante, com código de ingresso para check-in
+// @Description Inscrições do usuário logado como ingressos: codigo_ingresso REAL (conteúdo do QR lido pelo instrutor em POST /desafios/{id}/presenca), dados do evento, academia e presença
 // @Tags        usuarios
 // @Produce     json
-// @Success     200 {object} utils.APIResponse
+// @Success     200 {object} utils.APIResponse{data=[]models.IngressoResponse}
 // @Failure     500 {object} utils.APIResponse
 // @Router      /api/usuarios/ingressos [get]
 func (ctrl *UsuarioController) Ingressos(c *fiber.Ctx) error {
@@ -334,7 +334,7 @@ func (ctrl *UsuarioController) Ingressos(c *fiber.Ctx) error {
 	}
 	lista, err := ctrl.service.Ingressos(userID)
 	if err != nil {
-		return utils.Error(c, fiber.StatusInternalServerError, "Erro ao buscar ingressos: "+err.Error())
+		return responderErro(c, err)
 	}
 	if lista == nil {
 		lista = []models.IngressoResponse{}

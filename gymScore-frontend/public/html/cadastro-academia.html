@@ -4,8 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GymScore — Cadastro de Instituição</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="../css/base.css">
     <link rel="stylesheet" href="../css/cadastro-academia.css">
 </head>
@@ -43,8 +41,8 @@
 
         <div class="gs-field">
             <label class="gs-label" for="cnpj">CNPJ</label>
-            <input type="text" id="cnpj" class="gs-input"
-                   placeholder="00.000.000/0000-00" maxlength="18" required autocomplete="off">
+            <input type="text" id="cnpj" class="gs-input" data-mask="cnpj"
+                   placeholder="00.000.000/0000-00" required aria-required="true">
         </div>
     </div>
 
@@ -60,8 +58,8 @@
 
         <div class="gs-field">
             <label class="gs-label" for="telefone">Telefone</label>
-            <input type="tel" id="telefone" class="gs-input"
-                   placeholder="(11) 99999-9999" autocomplete="tel">
+            <input type="tel" id="telefone" class="gs-input" data-mask="telefone"
+                   placeholder="(11) 99999-9999">
         </div>
 
         <div class="gs-field">
@@ -123,15 +121,15 @@
         counter.className = 'senha-counter' + (len >= 8 ? ' ok' : '');
     }
 
-    // Máscara de CNPJ
-    document.getElementById('cnpj').addEventListener('input', function(e) {
-        var v = e.target.value.replace(/\D/g, '');
-        if (v.length > 14) v = v.slice(0, 14);
-        if (v.length > 12)      v = v.slice(0,2)+'.'+v.slice(2,5)+'.'+v.slice(5,8)+'/'+v.slice(8,12)+'-'+v.slice(12);
-        else if (v.length > 8)  v = v.slice(0,2)+'.'+v.slice(2,5)+'.'+v.slice(5,8)+'/'+v.slice(8);
-        else if (v.length > 5)  v = v.slice(0,2)+'.'+v.slice(2,5)+'.'+v.slice(5);
-        else if (v.length > 2)  v = v.slice(0,2)+'.'+v.slice(2);
-        e.target.value = v;
+    // Máscaras vêm de data-mask (api.js); validação inline ao sair do campo
+    document.getElementById('cnpj').addEventListener('blur', function() {
+        erroCampo(this, this.value && !Valid.cnpj(this.value) ? 'CNPJ inválido. Confira os dígitos.' : '');
+    });
+    document.getElementById('telefone').addEventListener('blur', function() {
+        erroCampo(this, this.value && !Valid.telefone(this.value) ? 'Telefone inválido. Informe DDD e número.' : '');
+    });
+    document.getElementById('email').addEventListener('blur', function() {
+        erroCampo(this, this.value && !Valid.email(this.value) ? 'E-mail inválido.' : '');
     });
 
     async function cadastrarInstituicao() {
@@ -153,6 +151,8 @@
             errorMsg.classList.add('show');
             return;
         }
+        if (!Valid.cnpj(cnpj)) { errorMsg.textContent = 'CNPJ inválido. Confira os dígitos.'; errorMsg.classList.add('show'); return; }
+        if (telefone && !Valid.telefone(telefone)) { errorMsg.textContent = 'Telefone inválido. Informe DDD e número.'; errorMsg.classList.add('show'); return; }
         if (senha.length < 8) {
             errorMsg.textContent = 'A senha precisa ter pelo menos 8 caracteres.';
             errorMsg.classList.add('show');
@@ -182,7 +182,7 @@
             btn.textContent = 'Instituição cadastrada! Redirecionando...';
             setTimeout(function() { window.location.href = '/login'; }, 1400);
         } catch (err) {
-            errorMsg.textContent = err.message;
+            errorMsg.textContent = mensagemErro(err);
             errorMsg.classList.add('show');
             btn.disabled = false;
             btn.textContent = 'CADASTRAR INSTITUIÇÃO';

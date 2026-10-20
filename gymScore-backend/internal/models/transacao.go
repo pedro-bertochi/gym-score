@@ -13,6 +13,13 @@ const (
 	TipoPremioDesafio  TipoTransacao = "premio_desafio"
 	// TipoAjuste é a linha de abertura criada pela migração de saldos legados (status received).
 	TipoAjuste TipoTransacao = "ajuste"
+	// Financeiro (Sprint 6): reserva da academia (-) e sua devolução (+), pagamento do instrutor (+),
+	// parte líquida da academia no encerramento (+) e tarifa de saque (-).
+	TipoReservaDesafio     TipoTransacao = "reserva_desafio"
+	TipoEstornoReserva     TipoTransacao = "estorno_reserva"
+	TipoPagamentoInstrutor TipoTransacao = "pagamento_instrutor"
+	TipoReceitaAcademia    TipoTransacao = "receita_academia"
+	TipoTarifaSaque        TipoTransacao = "tarifa_saque"
 )
 
 // Status da movimentação no ledger.

@@ -5,15 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>GymScore — Entrar</title>
     <link rel="icon" type="image/svg+xml" href="/img/favicon.svg">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="../css/base.css">
     <style>
-        /* Telas sem perfil autenticado usam verde fixo */
-        :root { --accent:#22c55e; --accent-dark:#16a34a; --accent-glow:rgba(34,197,94,.18); }
 
         body {
-            background: #0a0a0f;
             min-height: 100dvh;
             display: flex;
             flex-direction: column;
@@ -100,7 +95,7 @@
         }
         .tab-pill.ativo {
             background: var(--accent);
-            color: #fff;
+            color: var(--on-accent);
         }
 
         /* Campos com ícone */
@@ -131,7 +126,7 @@
             border: none;
             border-radius: 30px;
             background: var(--accent);
-            color: #000;
+            color: var(--on-accent);
             font-family: inherit;
             font-size: 0.95rem;
             font-weight: 800;
@@ -232,17 +227,10 @@
         <form id="loginForm" novalidate>
             <!-- Campo e-mail / CPF / CNPJ -->
             <div class="gs-field">
-                <label class="gs-label" for="email" id="emailLabel">E-MAIL OU CPF</label>
+                <label class="gs-label" for="email" id="emailLabel">E-MAIL</label>
                 <div class="field-icon">
-                    <input type="text" id="email" class="gs-input" autocomplete="username"
+                    <input type="email" id="email" class="gs-input" autocomplete="username" inputmode="email" autocapitalize="none" spellcheck="false"
                            placeholder="email@exemplo.com" required aria-labelledby="emailLabel">
-                    <button type="button" class="field-icon-btn" aria-label="Clipboard" tabindex="-1">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
-                             fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M16 4h2a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h2"/>
-                            <rect x="8" y="2" width="8" height="4" rx="1" ry="1"/>
-                        </svg>
-                    </button>
                 </div>
             </div>
 
@@ -262,21 +250,14 @@
                 </div>
             </div>
 
-            <!-- Campo extra: Código da Instituição (apenas instrutor) -->
-            <div class="gs-field" id="fieldCodigoInstituicao" style="margin-top:12px;display:none;">
-                <label class="gs-label" for="codigoInstituicao">CÓDIGO DA INSTITUIÇÃO</label>
-                <input type="text" id="codigoInstituicao" class="gs-input"
-                       placeholder="Código fornecido pela academia" autocomplete="off">
-                <p class="field-helper">Código fornecido pela academia ao se cadastrar.</p>
-            </div>
-
-            <p id="errorMsg" class="gs-msg error" style="margin-top:10px;"></p>
+            <p id="errorMsg" class="gs-msg error" style="margin-top:10px;" role="alert"></p>
 
             <!-- Botão entrar -->
             <button type="submit" class="btn-entrar" id="submitBtn">ENTRAR</button>
         </form>
 
         <!-- Botões secundários -->
+        <p class="field-helper" id="dicaTab" hidden style="text-align:center;margin-top:12px;"></p>
         <div class="btns-secundarios" id="btnsSecundarios">
             <a href="/signup" id="btnCadastrar" class="btn-outline">CADASTRAR</a>
             <a href="/esqueci-senha" class="btn-link">Recuperar senha</a>
@@ -285,24 +266,29 @@
     </div>
 </div>
 
-<footer class="login-footer">Powered by Asaas Gateway &bull; v2.0.1</footer>
+<footer class="login-footer">Pagamentos via PIX processados pelo Asaas</footer>
 
 <script src="../js/api.js"></script>
 <script>
     // Redireciona se já autenticado
     if (Auth.getToken()) {
         var _u = Auth.getUser();
-        window.location.href = (_u && _u.perfil === 'academia') ? '/academia'
-            : (_u && _u.perfil === 'instrutor') ? '/instrutor' : '/menu';
+        window.location.href = Auth.destinoPosLogin(_u && _u.perfil);
     }
     checkLGPDConsent();
+
+    // ?next=/academia ou /instrutor pré-seleciona a aba do perfil (aplicado depois que switchTab existir)
+    var _nextAba = (function() {
+        var n = new URLSearchParams(location.search).get('next') || '';
+        return n.indexOf('/academia') === 0 ? 'academia' : n.indexOf('/instrutor') === 0 ? 'instrutor' : null;
+    })();
 
     var _activeTab = 'atleta';
 
     var _tabConfig = {
-        atleta:    { emailLabel: 'E-MAIL OU CPF',   emailPlaceholder: 'email@exemplo.com', cadastroHref: '/signup',          showCadastro: true  },
-        academia:  { emailLabel: 'E-MAIL OU CNPJ',  emailPlaceholder: 'email@empresa.com', cadastroHref: '/signup-academia', showCadastro: true  },
-        instrutor: { emailLabel: 'E-MAIL',           emailPlaceholder: 'email@exemplo.com', cadastroHref: null,               showCadastro: false }
+        atleta:    { emailLabel: 'E-MAIL', emailPlaceholder: 'email@exemplo.com', cadastroHref: '/signup',            showCadastro: true },
+        academia:  { emailLabel: 'E-MAIL', emailPlaceholder: 'email@empresa.com', cadastroHref: '/signup-academia',   showCadastro: true },
+        instrutor: { emailLabel: 'E-MAIL', emailPlaceholder: 'email@exemplo.com', cadastroHref: '/signup', showCadastro: true, dica: 'Instrutor começa com uma conta de atleta: crie a conta, entre e ative o perfil de instrutor com o seu CREF.' }
     };
 
     function switchTab(tab) {
@@ -320,10 +306,6 @@
         document.getElementById('emailLabel').textContent = cfg.emailLabel;
         document.getElementById('email').placeholder = cfg.emailPlaceholder;
 
-        // Campo código da instituição
-        document.getElementById('fieldCodigoInstituicao').style.display =
-            tab === 'instrutor' ? 'block' : 'none';
-
         // Botão cadastrar
         var btnCad = document.getElementById('btnCadastrar');
         if (cfg.showCadastro) {
@@ -332,6 +314,11 @@
         } else {
             btnCad.style.display = 'none';
         }
+
+        var dica = document.getElementById('dicaTab');
+        dica.textContent = cfg.dica || '';
+        dica.hidden = !cfg.dica;
+        btnCad.textContent = tab === 'instrutor' ? 'CRIAR CONTA' : 'CADASTRAR';
 
         document.getElementById('errorMsg').classList.remove('show');
     }
@@ -366,19 +353,22 @@
             var perfil  = usuario.perfil || 'atleta';
 
             if (_activeTab !== perfil) {
+                // O backend já emitiu o cookie jwt: revoga a sessão antes de recusar
+                try { await fetch('/api/logout', { method: 'POST', headers: { 'Authorization': 'Bearer ' + resp.data.token } }); } catch (e2) {}
                 throw new Error('Esta conta é do tipo "' + perfil + '". Selecione a aba correta.');
             }
 
             Auth.save(resp.data.token, usuario);
-            window.location.href = perfil === 'academia' ? '/academia'
-                : perfil === 'instrutor' ? '/instrutor' : '/menu';
+            window.location.href = Auth.destinoPosLogin(perfil);
         } catch (err) {
-            errorMsg.textContent = err.message;
+            errorMsg.textContent = mensagemErro(err);
             errorMsg.classList.add('show');
             btn.disabled = false;
             btn.textContent = 'ENTRAR';
         }
     });
+
+    if (_nextAba) switchTab(_nextAba);
 </script>
 </body>
 </html>

@@ -7,7 +7,7 @@
 //	TEST_DB_DSN='root:senha@tcp(127.0.0.1:3307)/?parseTime=True&loc=Local' \
 //	  go test -tags integration ./...
 //
-// O banco `gymscore_it` é recriado do zero a cada execução.
+// O banco `gymscore_it` (ou TEST_DB_NAME) é recriado do zero a cada execução.
 package integration
 
 import (
@@ -39,7 +39,14 @@ import (
 	"gorm.io/gorm/logger"
 )
 
-const nomeBanco = "gymscore_it"
+// nomeBanco pode ser trocado por TEST_DB_NAME para duas execuções simultâneas não se atropelarem
+// no mesmo servidor de teste (cada uma recria o próprio banco).
+var nomeBanco = func() string {
+	if n := os.Getenv("TEST_DB_NAME"); n != "" {
+		return n
+	}
+	return "gymscore_it"
+}()
 
 var uploadsDir = filepath.Join(os.TempDir(), fmt.Sprintf("gymscore_it_uploads_%d", os.Getpid()))
 

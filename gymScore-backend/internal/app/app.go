@@ -39,9 +39,12 @@ func Construir(cfg *config.Config, db *gorm.DB, dep Dependencias) *fiber.App {
 	notifRepo := repositories.NovoNotificacaoRepository(db)
 	rankingRepo := repositories.NovoRankingRepository(db)
 	instrutorRepo := repositories.NovoInstrutorRepository(db)
-	podioRepo := repositories.NovoPodioRepository(db)
 	avaliacaoRepo := repositories.NovoAvaliacaoRepository(db)
 	academiaRepo := repositories.NovoAcademiaRepository(db)
+	candidaturaRepo := repositories.NovoCandidaturaRepository(db)
+	receitaRepo := repositories.NovoReceitaRepository(db)
+	painelRepo := repositories.NovoPainelRepository(db)
+	vinculoInstrutorRepo := repositories.NovoVinculoInstrutorRepository(db)
 
 	// Cliente Anthropic (opcional): sem chave, as recomendações caem na heurística.
 	var anthropicClient *client.AnthropicClient
@@ -56,20 +59,21 @@ func Construir(cfg *config.Config, db *gorm.DB, dep Dependencias) *fiber.App {
 	notifSvc := services.NovoNotificacaoService(notifRepo)
 	usuarioSvc := services.NovoUsuarioService(usuarioRepo, desafioRepo)
 	senhaSvc := services.NovoSenhaService(usuarioRepo, resetRepo, dep.Mailer, cfg.AppBaseURL)
-	desafioSvc := services.NovoDesafioService(db, desafioRepo, carteiraRepo, amizadeRepo, usuarioRepo, notifSvc,
-		services.FotoStorageDisco{Dir: cfg.UploadsDir})
+	desafioSvc := services.NovoDesafioService(db, desafioRepo, carteiraRepo, amizadeRepo, usuarioRepo,
+		academiaRepo, instrutorRepo, avaliacaoRepo, notifSvc, candidaturaRepo, receitaRepo, cfg.PlataformaTaxaInscricaoPct)
 	amizadeSvc := services.NovoAmizadeService(amizadeRepo, usuarioRepo, notifSvc)
 	pixSvc := services.NovoPIXService(dep.Asaas, usuarioRepo, transacaoRepo, carteiraRepo, notifSvc)
-	carteiraSvc := services.NovoCarteiraService(carteiraRepo, usuarioRepo, dep.Asaas, notifSvc)
+	carteiraSvc := services.NovoCarteiraService(carteiraRepo, usuarioRepo, dep.Asaas, notifSvc, cfg.TarifaSaqueAtiva())
 	rankingSvc := services.NovoRankingService(rankingRepo)
 	treinoSvc := services.NovoTreinoService(treinoRepo, usuarioRepo)
-	instrutorSvc := services.NovoInstrutorService(instrutorRepo, usuarioRepo)
+	instrutorSvc := services.NovoInstrutorService(db, instrutorRepo, usuarioRepo, vinculoInstrutorRepo, desafioRepo)
 	recomendacaoSvc := services.NovoRecomendacaoService(desafioRepo, treinoRepo, usuarioRepo, anthropicClient)
 	academiaSvc := services.NovoAcademiaService(db, academiaRepo, usuarioRepo)
+	academiaGestaoSvc := services.NovoAcademiaGestaoService(db, academiaRepo, desafioRepo, painelRepo, vinculoInstrutorRepo, notifSvc)
 
 	app := fiber.New(fiber.Config{
 		AppName:      "GymScore API v1.0.0",
-		BodyLimit:    4 * 1024 * 1024, // 3 MB de foto + campos do multipart
+		BodyLimit:    1 * 1024 * 1024,
 		ErrorHandler: ErrorHandler,
 	})
 
@@ -90,9 +94,10 @@ func Construir(cfg *config.Config, db *gorm.DB, dep Dependencias) *fiber.App {
 		Carteira:     controllers.NovoCarteiraController(carteiraSvc),
 		Notificacao:  controllers.NovoNotificacaoController(notifSvc),
 		Ranking:      controllers.NovoRankingController(rankingSvc),
-		Instrutor:    controllers.NovoInstrutorController(instrutorSvc, desafioRepo),
-		Academia:     controllers.NovoAcademiaController(desafioRepo, usuarioRepo, podioRepo, avaliacaoRepo, academiaSvc),
+		Instrutor:    controllers.NovoInstrutorController(instrutorSvc),
+		Academia:     controllers.NovoAcademiaController(academiaSvc, academiaGestaoSvc),
 		Recomendacao: controllers.NovoRecomendacaoController(recomendacaoSvc),
+		Plataforma:   controllers.NovoPlataformaController(cfg),
 		Sessoes:      usuarioRepo,
 		UsuarioRepo:  usuarioRepo,
 	})

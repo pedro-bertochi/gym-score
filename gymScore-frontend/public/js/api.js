@@ -85,6 +85,395 @@ function fmtDataHora(raw) {
     return d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 }
 
+// Contagem regressiva legível até uma data ("Faltam 3 dias", "Começa em 2h 10min")
+function fmtContagem(raw) {
+    var d = new Date(raw);
+    if (!raw || isNaN(d.getTime())) return '';
+    var min = Math.floor((d.getTime() - Date.now()) / 60000);
+    if (min <= 0) return 'Já começou';
+    if (min < 60) return 'Começa em ' + min + ' min';
+    var horas = Math.floor(min / 60);
+    if (horas < 24) return 'Começa em ' + horas + 'h' + (min % 60 ? ' ' + (min % 60) + 'min' : '');
+    var dias = Math.floor(horas / 24);
+    return 'Faltam ' + dias + (dias === 1 ? ' dia' : ' dias');
+}
+
+// Mensagem amigável para erros de rede (fetch lança TypeError sem status)
+function mensagemErro(e) {
+    if (!e) return 'Erro inesperado. Tente de novo.';
+    if (e.status === undefined && (e.name === 'TypeError' || /fetch|network/i.test(e.message || ''))) {
+        return 'Sem conexão. Tente de novo.';
+    }
+    return e.message || 'Erro inesperado. Tente de novo.';
+}
+
+// Compartilha uma URL (Web Share API) com fallback de copiar para a área de transferência
+async function compartilharLink(url, titulo, texto) {
+    var abs = new URL(url, window.location.origin).href;
+    try {
+        if (navigator.share) {
+            await navigator.share({ title: titulo || 'GymScore', text: texto || '', url: abs });
+            return;
+        }
+    } catch(e) {
+        if (e && e.name === 'AbortError') return; // usuário cancelou
+    }
+    try {
+        await navigator.clipboard.writeText(abs);
+        showToast('Link copiado!', 'success');
+    } catch(e) {
+        window.prompt('Copie o link:', abs);
+    }
+}
+
+// ─── Máscaras e validadores de formulário ────────────────────────────────────
+// Uso declarativo: <input data-mask="moeda|cpf|cnpj|telefone|cref" ...>. Aplicado sozinho no
+// DOMContentLoaded (Mask.auto) e em qualquer input via Mask.aplicar(input, tipo).
+//  - moeda: o input mostra "1.234,56"; o valor em centavos fica em Mask.centavos(input).
+//    Limite opcional em centavos: data-max-centavos="1000000".
+var Mask = {
+    digitos: function(s) { return String(s == null ? '' : s).replace(/\D/g, ''); },
+
+    cpf: function(v) {
+        var d = Mask.digitos(v).slice(0, 11);
+        return d.replace(/^(\d{3})(\d)/, '$1.$2').replace(/^(\d{3})\.(\d{3})(\d)/, '$1.$2.$3').replace(/\.(\d{3})(\d)/, '.$1-$2');
+    },
+    cnpj: function(v) {
+        var d = Mask.digitos(v).slice(0, 14);
+        return d.replace(/^(\d{2})(\d)/, '$1.$2').replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3')
+            .replace(/\.(\d{3})(\d)/, '.$1/$2').replace(/(\d{4})(\d)/, '$1-$2');
+    },
+    telefone: function(v) {
+        var d = Mask.digitos(v).slice(0, 11);
+        if (d.length <= 2) return d.length ? '(' + d : '';
+        if (d.length <= 6) return '(' + d.slice(0, 2) + ') ' + d.slice(2);
+        if (d.length <= 10) return '(' + d.slice(0, 2) + ') ' + d.slice(2, 6) + '-' + d.slice(6);
+        return '(' + d.slice(0, 2) + ') ' + d.slice(2, 7) + '-' + d.slice(7);
+    },
+    // CREF: 6 dígitos + "-" + letra + "/" + UF (ex.: 123456-G/SP)
+    cref: function(v) {
+        var s = String(v == null ? '' : v).toUpperCase().replace(/[^0-9A-Z]/g, '');
+        var m = /^(\d{0,6})([A-Z]?)([A-Z]{0,2})/.exec(s);
+        var out = m[1];
+        if (m[2]) out += '-' + m[2];
+        if (m[3]) out += '/' + m[3];
+        return out;
+    },
+
+    // Centavos inteiros -> texto do input ("1.234,56"; 0 vira vazio para mostrar o placeholder)
+    moedaTexto: function(centavos) {
+        return centavos > 0 ? fmtBRL(centavos).slice(3) : '';
+    },
+    // Lê o valor de um input de moeda em centavos (0 se vazio)
+    centavos: function(input) {
+        return parseInt(input.dataset.centavos || '0', 10) || 0;
+    },
+    // Define o valor de um input de moeda (centavos)
+    definirCentavos: function(input, centavos) {
+        var max = parseInt(input.dataset.maxCentavos || '0', 10);
+        if (max > 0 && centavos > max) centavos = max;
+        input.dataset.centavos = String(centavos);
+        input.value = Mask.moedaTexto(centavos);
+    },
+
+    aplicar: function(input, tipo) {
+        if (!input || input._gsMask) return;
+        input._gsMask = tipo;
+        if (tipo === 'moeda') {
+            input.setAttribute('inputmode', 'numeric');
+            if (!input.placeholder) input.placeholder = '0,00';
+            input.autocomplete = 'off';
+            input.addEventListener('input', function() {
+                var d = Mask.digitos(input.value).replace(/^0+/, '').slice(0, 10);
+                Mask.definirCentavos(input, d ? parseInt(d, 10) : 0);
+            });
+            if (input.value) Mask.definirCentavos(input, reaisParaCentavos(input.value) || 0);
+            return;
+        }
+        var fmt = Mask[tipo];
+        if (typeof fmt !== 'function') return;
+        input.setAttribute('inputmode', tipo === 'cref' ? 'text' : (tipo === 'telefone' ? 'tel' : 'numeric'));
+        if (tipo === 'telefone') input.setAttribute('autocomplete', 'tel');
+        else input.setAttribute('autocomplete', 'off');
+        input.setAttribute('maxlength', { cpf: 14, cnpj: 18, telefone: 15, cref: 12 }[tipo]);
+        input.addEventListener('input', function() { input.value = fmt(input.value); });
+        if (input.value) input.value = fmt(input.value);
+    },
+    auto: function(raiz) {
+        (raiz || document).querySelectorAll('[data-mask]').forEach(function(el) { Mask.aplicar(el, el.dataset.mask); });
+    }
+};
+
+// Validadores (retornam boolean). CPF/CNPJ com dígito verificador.
+var Valid = {
+    cpf: function(v) {
+        var d = Mask.digitos(v);
+        if (d.length !== 11 || /^(\d)\1{10}$/.test(d)) return false;
+        for (var t = 9; t < 11; t++) {
+            var soma = 0;
+            for (var i = 0; i < t; i++) soma += parseInt(d.charAt(i), 10) * (t + 1 - i);
+            var dv = ((soma * 10) % 11) % 10;
+            if (dv !== parseInt(d.charAt(t), 10)) return false;
+        }
+        return true;
+    },
+    cnpj: function(v) {
+        var d = Mask.digitos(v);
+        if (d.length !== 14 || /^(\d)\1{13}$/.test(d)) return false;
+        for (var t = 12; t < 14; t++) {
+            var soma = 0, peso = t - 7;
+            for (var i = 0; i < t; i++) {
+                soma += parseInt(d.charAt(i), 10) * peso;
+                peso = peso === 2 ? 9 : peso - 1;
+            }
+            var dv = soma % 11 < 2 ? 0 : 11 - (soma % 11);
+            if (dv !== parseInt(d.charAt(t), 10)) return false;
+        }
+        return true;
+    },
+    telefone: function(v) { var n = Mask.digitos(v).length; return n === 10 || n === 11; },
+    cref: function(v) { return /^\d{4,6}-[A-Z]\/[A-Z]{2}$/.test(String(v || '').toUpperCase()); },
+    email: function(v) { return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(String(v || '').trim()); }
+};
+
+// Mostra/limpa erro inline abaixo de um campo (aria-invalid + aria-describedby). msg vazia limpa.
+function erroCampo(input, msg) {
+    var id = (input.id || (input.id = 'campo' + Math.random().toString(36).slice(2, 8))) + '-erro';
+    var el = document.getElementById(id);
+    if (!msg) {
+        input.removeAttribute('aria-invalid');
+        input.removeAttribute('aria-describedby');
+        if (el) el.remove();
+        return;
+    }
+    if (!el) {
+        el = h('p', { id: id, class: 'gs-field-erro', role: 'alert' });
+        input.insertAdjacentElement('afterend', el);
+    }
+    el.textContent = msg;
+    input.setAttribute('aria-invalid', 'true');
+    input.setAttribute('aria-describedby', id);
+}
+
+// ─── Skeleton e estados vazios ───────────────────────────────────────────────
+// Skeleton.cards(el, 3): preenche el com 3 cartões "carregando" (limpa o conteúdo anterior)
+var Skeleton = {
+    cards: function(el, n, altura) {
+        limpar(el);
+        el.setAttribute('aria-busy', 'true');
+        for (var i = 0; i < (n || 3); i++) {
+            el.appendChild(h('div', { class: 'gs-skeleton', style: { height: (altura || 96) + 'px' }, 'aria-hidden': 'true' }));
+        }
+    },
+    // Chame ao terminar de renderizar o conteúdo real
+    fim: function(el) { el.removeAttribute('aria-busy'); }
+};
+
+// estadoVazio({ icone: '🏆', titulo, texto, acao: { texto, href | onClick }, secundaria: {...} }) -> elemento
+// Sempre diga o próximo passo em "acao". Para erro de carregamento use { erro: true, acao: {texto:'Tentar de novo', onClick} }.
+function estadoVazio(o) {
+    function botao(a, primario) {
+        if (!a) return null;
+        var attrs = { class: 'gs-btn ' + (primario ? 'gs-btn-primary' : 'gs-btn-secondary') };
+        if (a.href) { attrs.href = a.href; return h('a', attrs, a.texto); }
+        attrs.type = 'button';
+        attrs.onClick = a.onClick;
+        return h('button', attrs, a.texto);
+    }
+    return h('div', { class: 'gs-vazio' + (o.erro ? ' erro' : ''), role: o.erro ? 'alert' : null }, [
+        o.icone ? h('div', { class: 'gs-vazio-icone', 'aria-hidden': 'true', text: o.icone }) : null,
+        h('h3', { text: o.titulo }),
+        o.texto ? h('p', { text: o.texto }) : null,
+        (o.acao || o.secundaria) ? h('div', { class: 'gs-vazio-acoes' }, [botao(o.acao, true), botao(o.secundaria, false)]) : null
+    ]);
+}
+
+// ─── Modal acessível ─────────────────────────────────────────────────────────
+// Modal.abrir(overlay, {rotulo, aoFechar, remover, semEsc, semFundo}) em markup existente
+//   (overlay = elemento de fundo; o diálogo é o 1º [role=dialog] dentro dele, ou o próprio overlay).
+// Modal.fechar(overlay) · Modal.criar({titulo, corpo, acoes, aoFechar}) -> {el, corpo, fechar}
+// Modal.confirmar({titulo, mensagem, linhas:[[rotulo,valor]], confirmar, cancelar, perigo}) -> Promise<boolean>
+// Faz: foco inicial, trap de Tab, Esc, restauração de foco, inert no resto da página, trava de rolagem.
+var Modal = {
+    _pilha: [],
+    _seq: 0,
+    _FOCAVEIS: 'a[href],button:not([disabled]),input:not([disabled]):not([type="hidden"]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])',
+
+    abrir: function(overlay, opts) {
+        opts = opts || {};
+        var dialog = overlay.querySelector('[role="dialog"],[role="alertdialog"]') || overlay;
+        if (!dialog.getAttribute('role')) dialog.setAttribute('role', 'dialog');
+        dialog.setAttribute('aria-modal', 'true');
+        if (opts.rotulo) dialog.setAttribute('aria-label', opts.rotulo);
+        if (!dialog.hasAttribute('tabindex')) dialog.setAttribute('tabindex', '-1');
+
+        var topo = overlay;
+        while (topo.parentNode && topo.parentNode !== document.body) topo = topo.parentNode;
+        var estado = { overlay: overlay, dialog: dialog, topo: topo, opener: document.activeElement,
+            aoFechar: opts.aoFechar, remover: !!opts.remover, semEsc: !!opts.semEsc, inertes: [] };
+
+        Array.prototype.forEach.call(document.body.children, function(n) {
+            if (n === topo || n.id === 'gsToast' || n.tagName === 'SCRIPT' || n.inert) return;
+            n.inert = true;
+            estado.inertes.push(n);
+        });
+        overlay.hidden = false;
+        overlay.classList.add('aberto');
+        document.body.classList.add('gs-modal-lock');
+        if (!opts.semFundo) {
+            estado.onFundo = function(e) { if (e.target === overlay) Modal.fechar(overlay); };
+            overlay.addEventListener('mousedown', estado.onFundo);
+        }
+        Modal._pilha.push(estado);
+        if (Modal._pilha.length === 1) document.addEventListener('keydown', Modal._onKey, true);
+
+        var alvo = dialog.querySelector('[autofocus]') || dialog.querySelector(Modal._FOCAVEIS) || dialog;
+        setTimeout(function() { try { alvo.focus(); } catch(e) {} }, 0);
+        return estado;
+    },
+
+    fechar: function(overlay) {
+        var idx = -1;
+        Modal._pilha.forEach(function(s, i) { if (s.overlay === overlay) idx = i; });
+        if (idx < 0) return;
+        var s = Modal._pilha.splice(idx, 1)[0];
+        s.inertes.forEach(function(n) { n.inert = false; });
+        if (s.onFundo) overlay.removeEventListener('mousedown', s.onFundo);
+        overlay.classList.remove('aberto');
+        if (s.remover) overlay.remove(); else overlay.hidden = true;
+        if (!Modal._pilha.length) {
+            document.removeEventListener('keydown', Modal._onKey, true);
+            document.body.classList.remove('gs-modal-lock');
+        }
+        if (s.opener && document.body.contains(s.opener) && s.opener.focus) { try { s.opener.focus(); } catch(e) {} }
+        if (s.aoFechar) s.aoFechar();
+    },
+
+    _onKey: function(e) {
+        var s = Modal._pilha[Modal._pilha.length - 1];
+        if (!s) return;
+        if (e.key === 'Escape' && !s.semEsc) { e.stopPropagation(); Modal.fechar(s.overlay); return; }
+        if (e.key !== 'Tab') return;
+        var itens = Array.prototype.filter.call(s.dialog.querySelectorAll(Modal._FOCAVEIS), function(el) { return el.offsetParent !== null || el === document.activeElement; });
+        if (!itens.length) { e.preventDefault(); s.dialog.focus(); return; }
+        var primeiro = itens[0], ultimo = itens[itens.length - 1];
+        if (e.shiftKey && (document.activeElement === primeiro || document.activeElement === s.dialog)) { e.preventDefault(); ultimo.focus(); }
+        else if (!e.shiftKey && document.activeElement === ultimo) { e.preventDefault(); primeiro.focus(); }
+    },
+
+    // corpo: Node | string | array (h()). acoes: [{texto, classe?, onClick?(fechar), fecha?:true}]
+    criar: function(o) {
+        var id = 'gsModalTitulo' + (++Modal._seq);
+        var overlay, corpo = h('div', { class: 'gs-modal-corpo' }, o.corpo);
+        function fechar() { Modal.fechar(overlay); }
+        var rodape = (o.acoes && o.acoes.length) ? h('div', { class: 'gs-modal-acoes' }, o.acoes.map(function(a) {
+            return h('button', { type: 'button', class: 'gs-btn ' + (a.classe || 'gs-btn-secondary'), onClick: function() {
+                if (a.onClick) a.onClick(fechar);
+                if (a.fecha !== false && !a.onClick) fechar();
+            }, text: a.texto });
+        })) : null;
+        overlay = h('div', { class: 'gs-modal-overlay', hidden: true }, h('div', { class: 'gs-modal', role: o.alerta ? 'alertdialog' : 'dialog', 'aria-labelledby': id }, [
+            h('div', { class: 'gs-modal-topo' }, [
+                h('h2', { id: id, text: o.titulo }),
+                h('button', { type: 'button', class: 'gs-modal-x', 'aria-label': 'Fechar', onClick: fechar, text: '×' })
+            ]),
+            corpo,
+            rodape
+        ]));
+        document.body.appendChild(overlay);
+        Modal.abrir(overlay, { remover: true, aoFechar: o.aoFechar });
+        return { el: overlay, corpo: corpo, fechar: fechar };
+    },
+
+    confirmar: function(o) {
+        return new Promise(function(resolve) {
+            var decidido = false;
+            function decidir(v, fechar) { decidido = true; resolve(v); if (fechar) fechar(); }
+            var m = Modal.criar({
+                titulo: o.titulo, alerta: true,
+                corpo: [
+                    o.mensagem ? h('p', { class: 'gs-modal-msg', text: o.mensagem }) : null,
+                    (o.linhas && o.linhas.length) ? h('dl', { class: 'gs-modal-linhas' }, o.linhas.map(function(l) {
+                        return h('div', null, [h('dt', { text: l[0] }), h('dd', { text: l[1] })]);
+                    })) : null
+                ],
+                acoes: [
+                    { texto: o.cancelar || 'Cancelar', onClick: function(f) { decidir(false, f); } },
+                    { texto: o.confirmar || 'Confirmar', classe: o.perigo ? 'gs-btn-danger' : 'gs-btn-primary', onClick: function(f) { decidir(true, f); } }
+                ],
+                aoFechar: function() { if (!decidido) resolve(false); }
+            });
+            var ok = m.el.querySelector('.gs-modal-acoes button:last-child');
+            if (ok) ok.setAttribute('autofocus', '');
+        });
+    }
+};
+
+// ─── Rótulos do ledger da carteira ───────────────────────────────────────────
+var ROTULOS_TRANSACAO = {
+    deposito: 'Depósito PIX',
+    saque: 'Saque PIX',
+    tarifa_saque: 'Tarifa de saque',
+    entrada_desafio: 'Inscrição em desafio',
+    estorno_desafio: 'Estorno de inscrição',
+    premio_desafio: 'Prêmio de desafio',
+    reserva_desafio: 'Reserva para desafio',
+    estorno_reserva: 'Reserva devolvida',
+    pagamento_instrutor: 'Pagamento de instrutor',
+    receita_academia: 'Receita do desafio',
+    ajuste: 'Saldo inicial migrado'
+};
+function rotuloTransacao(tipo) { return ROTULOS_TRANSACAO[tipo] || 'Movimentação'; }
+
+// ─── Desafios: rótulos e cartão compartilhado ────────────────────────────────
+var ROTULOS_CATEGORIA = {
+    geral: 'Geral', corrida: 'Corrida', musculacao: 'Musculação', crossfit: 'CrossFit', funcional: 'Funcional',
+    ciclismo: 'Ciclismo', natacao: 'Natação', calistenia: 'Calistenia', luta: 'Luta', outros: 'Outros'
+};
+function rotuloCategoria(c) {
+    return ROTULOS_CATEGORIA[c] || (c ? c.charAt(0).toUpperCase() + c.slice(1) : '');
+}
+var ROTULOS_STATUS_DESAFIO = { aberto: 'Aberto', em_andamento: 'Em andamento', encerrado: 'Encerrado', cancelado: 'Cancelado' };
+function badgeStatus(status) {
+    var k = ROTULOS_STATUS_DESAFIO[status] ? status : 'aberto';
+    return h('span', { class: 'status-badge status-' + k, text: ROTULOS_STATUS_DESAFIO[status] || status });
+}
+// Prêmio total do pódio em centavos (premiacao.* do Sprint 6; cai para a soma da prevista)
+function premioTotalCentavos(d) {
+    if (d.premiacao && d.premiacao.premio_total_centavos != null) return d.premiacao.premio_total_centavos;
+    return (d.premiacao_prevista_centavos || []).reduce(function(s, v) { return s + v; }, 0);
+}
+function premiosPorPosicao(d) {
+    return (d.premiacao && d.premiacao.por_posicao_centavos) || d.premiacao_prevista_centavos || [];
+}
+// Cartão de desafio (feed e lista). Link real: abre em nova aba, mostra a URL, funciona com teclado.
+function cartaoDesafio(d) {
+    var vagas = d.vagas || 0, inscritos = d.participantes_count || 0;
+    var pct = vagas > 0 ? Math.min(100, Math.round(inscritos / vagas * 100)) : 0;
+    var lotado = vagas > 0 && inscritos >= vagas;
+    var quando = d.data_evento ? fmtDataHora(d.data_evento) : 'Data a definir';
+    var contagem = d.status === 'aberto' && d.data_evento ? fmtContagem(d.data_evento) : '';
+    return h('a', { class: 'desafio-card', href: '/desafios?id=' + encodeURIComponent(d.id) }, [
+        h('div', { class: 'desafio-card-topo' }, [
+            d.categoria ? h('span', { class: 'chip-tag', text: rotuloCategoria(d.categoria) }) : null,
+            d.status !== 'aberto' ? badgeStatus(d.status) : null,
+            d.voce_participa ? h('span', { class: 'tag-participa', text: 'Inscrito' }) : null
+        ]),
+        h('h3', { class: 'desafio-card-titulo', text: d.titulo }),
+        d.academia ? h('p', { class: 'desafio-card-sub', text: d.academia.nome_fantasia }) : null,
+        h('p', { class: 'desafio-card-meta', text: quando + (contagem ? ' · ' + contagem : '') + (d.local ? ' · ' + d.local : '') }),
+        h('div', { class: 'desafio-card-fin' }, [
+            h('span', null, ['Entrada ', h('strong', { text: d.valor_entrada_centavos > 0 ? fmtBRL(d.valor_entrada_centavos) : 'Grátis' })]),
+            h('span', { class: 'premio' }, ['Prêmio ', h('strong', { text: premioTotalCentavos(d) > 0 || d.status !== 'aberto' ? fmtBRL(premioTotalCentavos(d)) : 'cresce com as inscrições' })])
+        ]),
+        vagas > 0 ? h('div', { class: 'desafio-card-vagas' }, [
+            h('div', { class: 'vagas-linha' }, [h('span', { text: lotado ? 'Lotado' : 'Vagas ' + inscritos + '/' + vagas }), h('span', { text: pct + '%' })]),
+            h('div', { class: 'gs-progresso', role: 'progressbar', 'aria-valuemin': '0', 'aria-valuemax': String(vagas), 'aria-valuenow': String(inscritos), 'aria-label': 'Vagas preenchidas' },
+                h('span', { style: { width: pct + '%' } }))
+        ]) : null
+    ]);
+}
+
 // ─── Auth ────────────────────────────────────────────────────────────────────
 // Token em localStorage (header Authorization) + cookie HttpOnly emitido pelo backend.
 var Auth = {
@@ -118,12 +507,20 @@ var Auth = {
         Auth.clear();
         window.location.href = '/login';
     },
+    // Sem token: vai ao login guardando o destino (?next=) para voltar depois (ex.: link de desafio compartilhado)
     require: function() {
         if (!Auth.getToken()) {
-            window.location.href = '/login';
+            var destino = window.location.pathname + window.location.search;
+            window.location.href = '/login' + (destino !== '/' ? '?next=' + encodeURIComponent(destino) : '');
             return false;
         }
         return true;
+    },
+    // Destino pós-login: ?next= (só caminho interno) ou a home do perfil
+    destinoPosLogin: function(perfil) {
+        var next = new URLSearchParams(window.location.search).get('next');
+        if (next && Notificacoes._linkSeguro(next) && next.indexOf('/login') !== 0) return next;
+        return perfil === 'academia' ? '/academia' : perfil === 'instrutor' ? '/instrutor' : '/menu';
     },
     // Rebusca o perfil completo (saldo, cpf, elo, pontos...) em /usuarios/me e atualiza o cache local
     refresh: async function() {
@@ -234,23 +631,23 @@ var _SVG = {
 var _NAV_LINKS = {
     atleta: [
         { href: '/menu',      label: 'Feed',      icon: 'feed'      },
+        { href: '/desafios',  label: 'Desafios',  icon: 'podio'     },
         { href: '/ingressos', label: 'Ingressos', icon: 'ingressos' },
         { href: '/amigos',    label: 'Amigos',    icon: 'amigos'    },
-        { href: '/depositar', label: 'Carteira',  icon: 'carteira'  },
         { href: '/perfil',    label: 'Perfil',    icon: 'perfil'    }
     ],
     academia: [
         { href: '/academia',              label: 'Dashboard',  icon: 'dashboard'   },
+        { href: '/academia/desafios',     label: 'Desafios',   icon: 'agenda'      },
         { href: '/academia/criar-desafio',label: 'Criar',      icon: 'criar'       },
         { href: '/academia/instrutores',  label: 'Instrutores',icon: 'instrutores' },
-        { href: '/academia/podio',        label: 'Auditoria',  icon: 'auditoria'   },
         { href: '/perfil',                label: 'Perfil',     icon: 'perfil'      }
     ],
     instrutor: [
-        { href: '/instrutor',         label: 'Agenda',   icon: 'agenda'   },
-        { href: '/instrutor/checkin', label: 'Check-in', icon: 'checkin'  },
-        { href: '/instrutor/podio',   label: 'Pódio',    icon: 'podio'    },
-        { href: '/perfil',            label: 'Perfil',   icon: 'perfil'   }
+        { href: '/instrutor',         label: 'Agenda',  icon: 'agenda'    },
+        { href: '/instrutor/vagas',   label: 'Vagas',   icon: 'ingressos' },
+        { href: '/instrutor/ganhos',  label: 'Ganhos',  icon: 'carteira'  },
+        { href: '/perfil',            label: 'Perfil',  icon: 'perfil'    }
     ]
 };
 
@@ -278,14 +675,14 @@ function renderBottomNav(activePage) {
         var a = document.createElement('a');
         a.href = l.href;
         a.setAttribute('aria-label', l.label);
-        a.setAttribute('aria-current', isActive ? 'page' : 'false');
-        a.innerHTML = (_SVG[l.icon] || '') + '<span>' + l.label + '</span>';
-        if (isActive) a.classList.add('active');
+        if (isActive) { a.setAttribute('aria-current', 'page'); a.classList.add('active'); }
+        a.appendChild(_navIcon(l.icon));
+        a.appendChild(h('span', { text: l.label }));
         nav.appendChild(a);
     });
 
     // Sino de notificações (antes de "Perfil")
-    var bell = h('button', { type: 'button', id: 'bellBtn', class: 'nav-bell', 'aria-label': 'Notificações', 'aria-haspopup': 'dialog' }, [
+    var bell = h('button', { type: 'button', id: 'bellBtn', class: 'nav-bell', 'aria-label': 'Notificações', 'aria-haspopup': 'dialog', 'aria-expanded': 'false' }, [
         _navIcon('sino'),
         h('span', { id: 'bellBadge', class: 'bell-badge', hidden: true, 'aria-hidden': 'true' }),
         h('span', { text: 'Avisos' })
@@ -312,6 +709,9 @@ var Notificacoes = {
             Notificacoes.atualizarContador();
             if (Notificacoes._painel) Notificacoes.carregarLista();
         }, 30000);
+        document.addEventListener('visibilitychange', function() {
+            if (!document.hidden) Notificacoes.atualizarContador();
+        });
     },
 
     atualizarContador: async function() {
@@ -329,6 +729,8 @@ var Notificacoes = {
         badge.hidden = n <= 0;
         badge.textContent = n > 99 ? '99+' : String(n);
         btn.setAttribute('aria-label', n > 0 ? 'Notificações (' + n + ' não lidas)' : 'Notificações');
+        var base = document.title.replace(/^\(\d+\+?\) /, '');
+        document.title = (n > 0 ? '(' + (n > 99 ? '99+' : n) + ') ' : '') + base;
     },
 
     abrir: function() {
@@ -344,21 +746,22 @@ var Notificacoes = {
             ]),
             lista
         ]);
-        var overlay = h('div', { class: 'notif-overlay', onClick: function(e) { if (e.target === overlay) Notificacoes.fechar(); } }, sheet);
+        var overlay = h('div', { class: 'notif-overlay' }, sheet);
         document.body.appendChild(overlay);
         Notificacoes._painel = overlay;
-        Notificacoes._onKey = function(e) { if (e.key === 'Escape') Notificacoes.fechar(); };
-        document.addEventListener('keydown', Notificacoes._onKey);
+        var bellBtn = document.getElementById('bellBtn');
+        if (bellBtn) bellBtn.setAttribute('aria-expanded', 'true');
+        Modal.abrir(overlay, { remover: true, aoFechar: function() {
+            Notificacoes._painel = null;
+            var b = document.getElementById('bellBtn');
+            if (b) b.setAttribute('aria-expanded', 'false');
+        } });
         Notificacoes.carregarLista();
     },
 
     fechar: function() {
         if (!Notificacoes._painel) return;
-        Notificacoes._painel.remove();
-        Notificacoes._painel = null;
-        document.removeEventListener('keydown', Notificacoes._onKey);
-        var btn = document.getElementById('bellBtn');
-        if (btn) btn.focus();
+        Modal.fechar(Notificacoes._painel);
     },
 
     carregarLista: async function() {
@@ -434,28 +837,17 @@ function btnLoading(btn, isLoading) {
 function checkLGPDConsent() {
     if (localStorage.getItem('gym_lgpd_consent') === 'accepted') return;
 
-    var banner = h('div', { id: 'lgpdBanner' }, [
-        h('p', { style: { margin: '0', flex: '1', minWidth: '220px' } }, [
+    var banner = h('div', { id: 'lgpdBanner', role: 'region', 'aria-label': 'Aviso de privacidade' }, [
+        h('p', null, [
             h('strong', { text: 'Seus dados, seu controle.' }),
             ' O GymScore coleta nome, e-mail, CPF e data de nascimento para operação da plataforma, conforme a ',
-            h('a', { href: '/privacidade', style: { color: '#4CAF50' }, text: 'Política de Privacidade' }),
+            h('a', { href: '/privacidade', text: 'Política de Privacidade' }),
             ' (LGPD). Dados sensíveis ficam ',
             h('strong', { text: 'ocultos por padrão' }),
             '.'
         ]),
-        h('div', { style: { display: 'flex', gap: '10px', flexShrink: '0' } }, [
-            h('button', { type: 'button', onClick: acceptLGPD, text: 'Entendi e aceito',
-                style: { background: '#4CAF50', color: '#fff', border: 'none', padding: '8px 20px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' } }),
-            h('a', { href: '/privacidade', text: 'Ver política',
-                style: { background: 'transparent', color: '#4CAF50', border: '1px solid #4CAF50', padding: '8px 14px', borderRadius: '6px', textDecoration: 'none', fontSize: '0.85em' } })
-        ])
+        h('button', { type: 'button', class: 'gs-btn gs-btn-primary', onClick: acceptLGPD, text: 'Entendi e aceito' })
     ]);
-    banner.style.cssText = [
-        'position:fixed', 'bottom:0', 'left:0', 'right:0', 'z-index:9999',
-        'background:#1a1a1a', 'color:#f4f4f4', 'padding:18px 24px',
-        'border-top:2px solid #4CAF50', 'font-size:0.9em',
-        'display:flex', 'gap:16px', 'align-items:center', 'flex-wrap:wrap'
-    ].join(';');
     document.body.appendChild(banner);
 }
 
@@ -536,32 +928,32 @@ var API = {
         return _req('/api/usuarios/perfil', { method: 'PATCH', body: JSON.stringify(dados) });
     },
 
-    // Desafios
-    listarDesafios: function(status, pagina, limite) {
-        return _req('/api/desafios' + _qs({ status: status, pagina: pagina, limite: limite }));
+    // Desafios (contrato Sprint 6: envelope {itens,total,pagina,limite}; dinheiro em centavos)
+    // filtros: objeto {status, categoria, q, id_academia, pagina, limite}. Aceita também a forma
+    // antiga (status, pagina, limite) para não quebrar chamadas existentes.
+    listarDesafios: function(filtros, pagina, limite) {
+        if (filtros === null || typeof filtros !== 'object') filtros = { status: filtros, pagina: pagina, limite: limite };
+        return _req('/api/desafios' + _qs(filtros));
     },
-    listarMeusDesafios: function(status, pagina, limite) {
-        return _req('/api/desafios/meus' + _qs({ status: status, pagina: pagina, limite: limite }));
+    listarMeusDesafios: function(filtros, pagina, limite) {
+        if (filtros === null || typeof filtros !== 'object') filtros = { status: filtros, pagina: pagina, limite: limite };
+        return _req('/api/desafios/meus' + _qs(filtros));
     },
+    categoriasDesafio: function() { return _req('/api/desafios/categorias'); },
     buscarDesafio: function(id) { return _req('/api/desafios/' + encodeURIComponent(id)); },
     criarDesafio: function(dados) { return _post('/api/desafios', dados); },
+    editarDesafio: function(id, dados) {
+        return _req('/api/desafios/' + encodeURIComponent(id), { method: 'PATCH', body: JSON.stringify(dados) });
+    },
     entrarDesafio: function(id) { return _post('/api/desafios/' + encodeURIComponent(id) + '/entrar'); },
     sairDesafio: function(id) { return _post('/api/desafios/' + encodeURIComponent(id) + '/sair'); },
     cancelarDesafio: function(id) { return _post('/api/desafios/' + encodeURIComponent(id) + '/cancelar'); },
     iniciarDesafio: function(id) { return _post('/api/desafios/' + encodeURIComponent(id) + '/iniciar'); },
-    abrirVotacao: function(id) { return _post('/api/desafios/' + encodeURIComponent(id) + '/abrir-votacao'); },
-    votarDesafio: function(id, idVotado) {
-        return _post('/api/desafios/' + encodeURIComponent(id) + '/votar', { id_votado: idVotado });
-    },
-    apurarDesafio: function(id) { return _post('/api/desafios/' + encodeURIComponent(id) + '/apurar'); },
     convidarAmigo: function(id, idAmigo) {
         return _post('/api/desafios/' + encodeURIComponent(id) + '/convidar', { id_amigo: idAmigo });
     },
-    listarCheckins: function(id) { return _req('/api/desafios/' + encodeURIComponent(id) + '/checkins'); },
-    // formData: texto?, latitude?, longitude?, foto?
-    fazerCheckin: function(id, formData) {
-        return _req('/api/desafios/' + encodeURIComponent(id) + '/checkins', { method: 'POST', body: formData });
-    },
+    // Taxas da plataforma: {modo, taxa_inscricao_pct, tarifa_saque_centavos}
+    taxasPlataforma: function() { return _req('/api/plataforma/taxas'); },
 
     // PIX / Depósito (valor em centavos)
     gerarPix: function(valorCentavos, cpf) { return _post('/api/pagamento/pix', { valor_centavos: valorCentavos, cpf: cpf }); },
@@ -618,12 +1010,6 @@ var API = {
     // Academia
     dashboardAcademia: function() { return _req('/api/academia/dashboard'); },
     listarPresentes: function(idDesafio) { return _req('/api/desafios/' + idDesafio + '/presentes'); },
-    marcarPresenca: function(idDesafio, idUsuario) {
-        return _req('/api/desafios/' + idDesafio + '/presenca', {
-            method: 'POST',
-            body: JSON.stringify({ id_usuario: idUsuario })
-        });
-    },
     lancarPodio: function(idDesafio, posicoes) {
         return _req('/api/desafios/' + idDesafio + '/podio', {
             method: 'POST',
@@ -644,11 +1030,48 @@ var API = {
     // Ingressos do atleta (Sprint 5)
     ingressos: function() { return _req('/api/usuarios/ingressos'); },
 
-    // Agenda do instrutor (Sprint 5)
-    agendaInstrutor: function() { return _req('/api/instrutor/agenda'); },
 
-    // Instrutores da academia (Sprint 5)
-    listarInstrutoresAcademia: function() { return _req('/api/instrutores'); }
+    // ═══ INÍCIO: métodos de ACADEMIA e INSTRUTOR (Sprint 6) ═══════════════════
+    // Bloco reservado a front-s6-gestao: acrescente os métodos aqui (releia o arquivo antes de editar).
+    // Contrato em DEV-BACKEND-SPRINT6.md (Partes A, B e Financeiro/leilão). Dinheiro sempre em centavos.
+    // Academia (sempre escopado pela academia do JWT)
+    listarDesafiosAcademia: function(status, pagina, limite) {
+        return _req('/api/academia/desafios' + _qs({ status: status, pagina: pagina, limite: limite }));
+    },
+    listarInstrutoresVinculados: function(pagina, limite) {
+        return _req('/api/academia/instrutores' + _qs({ pagina: pagina, limite: limite }));
+    },
+    vincularInstrutor: function(email) { return _post('/api/academia/instrutores', { email: email }); },
+    desvincularInstrutor: function(id) {
+        return _req('/api/academia/instrutores/' + encodeURIComponent(id), { method: 'DELETE' });
+    },
+    listarCandidaturas: function(idDesafio) {
+        return _req('/api/desafios/' + encodeURIComponent(idDesafio) + '/candidaturas');
+    },
+    escolherCandidatura: function(idDesafio, idCandidatura) {
+        return _post('/api/desafios/' + encodeURIComponent(idDesafio) + '/candidaturas/' + encodeURIComponent(idCandidatura) + '/escolher');
+    },
+
+    // Instrutor
+    agendaInstrutor: function(status, pagina, limite) {
+        return _req('/api/instrutor/agenda' + _qs({ status: status, pagina: pagina, limite: limite }));
+    },
+    listarVagas: function(pagina, limite, categoria, q) {
+        return _req('/api/instrutor/vagas' + _qs({ pagina: pagina, limite: limite, categoria: categoria, q: q }));
+    },
+    candidatar: function(idDesafio, lanceCentavos, mensagem) {
+        return _post('/api/desafios/' + encodeURIComponent(idDesafio) + '/candidaturas',
+            { lance_centavos: lanceCentavos, mensagem: mensagem || '' });
+    },
+    retirarCandidatura: function(idDesafio) {
+        return _req('/api/desafios/' + encodeURIComponent(idDesafio) + '/candidaturas', { method: 'DELETE' });
+    },
+    // Presença: exatamente um entre codigo (conteúdo do QR, 32 hex) e idUsuario (marcação na lista)
+    marcarPresencaPor: function(idDesafio, porCodigo, valor) {
+        var corpo = porCodigo ? { codigo_ingresso: valor } : { id_usuario: valor };
+        return _post('/api/desafios/' + encodeURIComponent(idDesafio) + '/presenca', corpo);
+    },
+    // ═══ FIM: métodos de ACADEMIA e INSTRUTOR ════════════════════════════════
 };
 
 // Monta querystring ignorando valores vazios
@@ -661,3 +1084,7 @@ function _qs(params) {
     });
     return parts.length ? '?' + parts.join('&') : '';
 }
+
+// Aplica as máscaras declarativas (data-mask) assim que o DOM estiver pronto
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function() { Mask.auto(); });
+else Mask.auto();

@@ -248,32 +248,25 @@ func (s *usuarioService) BuscarPublico(id uint) (*models.UsuarioPublicoResponse,
 	return toUsuarioPublicoResponse(u), nil
 }
 
-// HistoricoDesafios retorna os desafios encerrados nos quais o usuário participou, com o
-// resultado (vencedor/prêmio) DELE especificamente — não dos demais participantes.
+// HistoricoDesafios retorna os desafios encerrados em que o usuário esteve inscrito, com o resultado
+// DELE (posição no pódio, marca, prêmio) — nunca o dos demais participantes.
 func (s *usuarioService) HistoricoDesafios(id uint, desafioRepo *repositories.DesafioRepository) ([]models.HistoricoDesafioResponse, error) {
-	desafios, err := desafioRepo.ListarHistoricoUsuario(id)
+	linhas, err := desafioRepo.ListarHistorico(id)
 	if err != nil {
 		return nil, err
 	}
-	resp := make([]models.HistoricoDesafioResponse, 0, len(desafios))
-	for _, d := range desafios {
+	resp := make([]models.HistoricoDesafioResponse, 0, len(linhas))
+	for _, l := range linhas {
 		item := models.HistoricoDesafioResponse{
-			ID:                   d.ID,
-			Titulo:               d.Titulo,
-			Status:               d.Status,
-			Local:                derefStr(d.Local),
-			DataEncerramento:     d.DataEncerramento,
-			ValorEntradaCentavos: d.ValorEntradaCentavos,
-			ValorEntrada:         utils.CentavosParaReais(d.ValorEntradaCentavos),
-			CriadoEm:             d.CriadoEm,
+			ID: l.IDDesafio, Titulo: l.Titulo, Categoria: l.Categoria, Status: l.Status, Local: derefStr(l.Local),
+			DataEvento: l.DataEvento, DataEncerramento: l.DataEncerramento,
+			ValorEntradaCentavos: l.ValorEntradaCentavos, ValorEntrada: utils.CentavosParaReais(l.ValorEntradaCentavos),
+			ParticipantesCount: l.Participantes, Presente: l.Presente, Posicao: l.Posicao, Marca: derefStr(l.Marca),
+			Vencedor: l.Vencedor, PremioCentavos: l.PremioCentavos, Premio: utils.CentavosParaReais(l.PremioCentavos),
+			CriadoEm: l.CriadoEm,
 		}
-		// Participantes vem filtrado (Preload só com id_usuario = id) a uma única linha —
-		// a do usuário consultado (sempre existe: criador também é inserido como participante).
-		if len(d.Participantes) > 0 {
-			p := d.Participantes[0]
-			item.Vencedor = p.Vencedor
-			item.PremioCentavos = p.PremioCentavos
-			item.Premio = utils.CentavosParaReais(p.PremioCentavos)
+		if l.IDAcademia != nil && l.NomeFantasia != nil {
+			item.Academia = &models.AcademiaResumo{ID: *l.IDAcademia, NomeFantasia: *l.NomeFantasia}
 		}
 		resp = append(resp, item)
 	}
@@ -307,27 +300,24 @@ func (s *usuarioService) AtualizarUltimaVez(userID uint) error {
 	return s.repo.Atualizar(u)
 }
 
-// Ingressos retorna os desafios em que o usuário é participante, com código de ingresso gerado
+// Ingressos retorna as inscrições do usuário como ingressos: o código REAL do QR (o mesmo
+// `seu_codigo_ingresso` do desafio, aceito em POST /desafios/:id/presenca), os dados do evento e a presença.
 func (s *usuarioService) Ingressos(userID uint) ([]models.IngressoResponse, error) {
-	desafios, err := s.desafioRepo.ListarParticipacoesUsuario(userID)
+	linhas, err := s.desafioRepo.ListarIngressos(userID)
 	if err != nil {
 		return nil, err
 	}
-	var lista []models.IngressoResponse
-	for _, d := range desafios {
-		codigo := fmt.Sprintf("AC-%04X-%03d", d.ID, userID)
-		var data time.Time
-		if d.DataEncerramento != nil {
-			data = *d.DataEncerramento
+	lista := make([]models.IngressoResponse, 0, len(linhas))
+	for _, l := range linhas {
+		ing := models.IngressoResponse{
+			IDDesafio: l.IDDesafio, Titulo: l.Titulo, Categoria: l.Categoria, Data: l.DataEvento,
+			Local: derefStr(l.Local), Status: string(l.Status), CodigoIngresso: l.CodigoIngresso,
+			ValorEntradaCentavos: l.ValorEntradaCentavos, Presente: l.Presente, PresenteEm: l.PresenteEm,
 		}
-		lista = append(lista, models.IngressoResponse{
-			IDDesafio:      d.ID,
-			Titulo:         d.Titulo,
-			Data:           data,
-			Local:          derefStr(d.Local),
-			Status:         string(d.Status),
-			CodigoIngresso: codigo,
-		})
+		if l.IDAcademia != nil && l.NomeFantasia != nil {
+			ing.Academia = &models.AcademiaResumo{ID: *l.IDAcademia, NomeFantasia: *l.NomeFantasia}
+		}
+		lista = append(lista, ing)
 	}
 	return lista, nil
 }

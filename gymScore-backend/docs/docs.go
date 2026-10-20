@@ -24,6 +24,334 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/api/academia/dashboard": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Indicadores só da academia logada: desafios por status, inscritos no mês, pote em jogo, taxa de presença, avaliação média e próximos eventos. Exige perfil academia.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "academia"
+                ],
+                "summary": "Dashboard da academia",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/models.DashboardAcademiaResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/academia/desafios": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Lista paginada dos desafios da academia logada, com filtro opcional de status. Exige perfil academia.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "academia"
+                ],
+                "summary": "Desafios da academia",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "aberto | em_andamento | encerrado | cancelado",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Página (1..)",
+                        "name": "pagina",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Itens por página (padrão 20, máx. 100)",
+                        "name": "limite",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/models.ListaDesafiosResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/academia/instrutores": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Lista paginada dos instrutores vinculados à academia logada, com a contagem de desafios ativos de cada um. Exige perfil academia.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "academia"
+                ],
+                "summary": "Instrutores vinculados",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Página (1..)",
+                        "name": "pagina",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Itens por página (padrão 20, máx. 100)",
+                        "name": "limite",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/models.ListaInstrutoresVinculadosResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Vincula à academia logada a conta de instrutor com o e-mail informado (instrutor sem vínculo). Notifica o instrutor. Exige perfil academia.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "academia"
+                ],
+                "summary": "Vincular instrutor",
+                "parameters": [
+                    {
+                        "description": "E-mail da conta de instrutor",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.VincularInstrutorRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/models.InstrutorVinculadoResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/academia/instrutores/{id}": {
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Remove o vínculo do instrutor com a academia logada e o notifica. Bloqueado (409) se ele for o instrutor designado de desafio aberto ou em andamento. Exige perfil academia.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "academia"
+                ],
+                "summary": "Desvincular instrutor",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID do instrutor (instrutores.id)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/academias": {
+            "post": {
+                "description": "Cria uma nova conta de perfil \"academia\" (usuário pessoa jurídica, sem CPF) e o registro de academia vinculado",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "academia"
+                ],
+                "summary": "Cadastrar academia",
+                "parameters": [
+                    {
+                        "description": "Dados da academia",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.CriarAcademiaRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/amigos": {
             "get": {
                 "description": "Amigos aceitos e solicitações pendentes do usuário do token (sem e-mail/CPF)",
@@ -329,19 +657,37 @@ const docTemplate = `{
         },
         "/api/desafios": {
             "get": {
-                "description": "Desafios abertos com vaga + os do próprio usuário. Paginação e filtro no SQL.",
+                "description": "Por padrão só desafios abertos com data_evento futura, do mais próximo ao mais distante. Com status diferente de aberto, só os desafios desse status em que o usuário está envolvido. Paginação e filtros no SQL.",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "desafios"
                 ],
-                "summary": "Listar desafios",
+                "summary": "Feed de desafios",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "aberto|em_andamento|em_votacao|encerrado|cancelado",
+                        "description": "aberto|em_andamento|encerrado|cancelado",
                         "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "geral|corrida|musculacao|crossfit|funcional|ciclismo|natacao|calistenia|luta|outros",
+                        "name": "categoria",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Texto livre (título, local, nome da academia)",
+                        "name": "q",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Só desafios desta academia",
+                        "name": "id_academia",
                         "in": "query"
                     },
                     {
@@ -367,7 +713,7 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "O criador é o usuário do token e paga a entrada ao criar (débito atômico).",
+                "description": "Só a academia cria. A academia dona é a do token; id_instrutor precisa estar vinculado a ela. A academia não paga entrada nem vira participante.",
                 "consumes": [
                     "application/json"
                 ],
@@ -377,7 +723,7 @@ const docTemplate = `{
                 "tags": [
                     "desafios"
                 ],
-                "summary": "Criar desafio",
+                "summary": "Criar desafio (perfil academia)",
                 "parameters": [
                     {
                         "description": "Dados do desafio",
@@ -399,16 +745,88 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/desafios/meus": {
+        "/api/desafios/categorias": {
             "get": {
-                "description": "Desafios que o usuário do token criou ou participa (qualquer status)",
+                "description": "Lista as categorias aceitas (chips do feed)",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "desafios"
                 ],
-                "summary": "Listar meus desafios",
+                "summary": "Categorias de desafio",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/desafios/meus": {
+            "get": {
+                "description": "Desafios em que o usuário do token participa (atleta, com seu_codigo_ingresso e status), é a academia dona ou o instrutor designado (qualquer status)",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "desafios"
+                ],
+                "summary": "Meus desafios",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "aberto|em_andamento|encerrado|cancelado",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Categoria",
+                        "name": "categoria",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Texto livre",
+                        "name": "q",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Página (1..)",
+                        "name": "pagina",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Itens por página (máx. 100)",
+                        "name": "limite",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/desafios/recomendados": {
+            "get": {
+                "description": "Retorna até 5 desafios recomendados com razão textual personalizada",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "desafios"
+                ],
+                "summary": "Desafios recomendados",
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -421,6 +839,7 @@ const docTemplate = `{
         },
         "/api/desafios/{id}": {
             "get": {
+                "description": "Desafio completo com participantes, flags pode_* e, se encerrado, o pódio. Desafios não abertos só para participantes, academia dona e instrutor designado.",
                 "produces": [
                     "application/json"
                 ],
@@ -445,24 +864,86 @@ const docTemplate = `{
                         }
                     }
                 }
-            }
-        },
-        "/api/desafios/{id}/abrir-votacao": {
-            "post": {
+            },
+            "patch": {
+                "description": "Campos opcionais. Não altera a entrada se já há inscritos; vagas não podem ficar abaixo dos inscritos. Trocar id_instrutor notifica o antigo e o novo.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
                 "tags": [
                     "desafios"
                 ],
-                "summary": "Abrir votação (só criador)",
-                "responses": {}
+                "summary": "Editar desafio aberto (academia dona)",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID do desafio",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Campos a alterar",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.EditarDesafioRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
             }
         },
-        "/api/desafios/{id}/apurar": {
+        "/api/desafios/{id}/avaliar": {
             "post": {
+                "description": "Nota de 1 a 5, só de quem esteve presente num desafio encerrado; uma por atleta",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
                 "tags": [
                     "desafios"
                 ],
-                "summary": "Apurar votação antecipadamente (só criador)",
-                "responses": {}
+                "summary": "Avaliar desafio",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID do desafio",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Nota",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.AvaliarDesafioRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
             }
         },
         "/api/desafios/{id}/cancelar": {
@@ -470,19 +951,20 @@ const docTemplate = `{
                 "tags": [
                     "desafios"
                 ],
-                "summary": "Cancelar desafio aberto (só criador; reembolsa todos)",
+                "summary": "Cancelar desafio aberto ou em andamento (só academia dona; reembolsa todos)",
                 "responses": {}
             }
         },
-        "/api/desafios/{id}/checkins": {
+        "/api/desafios/{id}/candidaturas": {
             "get": {
+                "description": "Nome, CREF, especialidade, lance e mensagem; do menor para o maior lance; sem as retiradas.",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "desafios"
                 ],
-                "summary": "Listar check-ins do desafio",
+                "summary": "Candidatos da vaga de instrutor (só a academia dona)",
                 "parameters": [
                     {
                         "type": "integer",
@@ -502,9 +984,9 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "multipart/form-data: texto?, latitude?, longitude?, foto? (JPG/PNG/WEBP até 3 MB). Só participante, só em_andamento, 1 por dia.",
+                "description": "Lance em centavos \u003c= teto da vaga e mensagem opcional. 201 ao criar (ou reabrir após retirar); 200 ao atualizar o lance de uma candidatura pendente.",
                 "consumes": [
-                    "multipart/form-data"
+                    "application/json"
                 ],
                 "produces": [
                     "application/json"
@@ -512,7 +994,7 @@ const docTemplate = `{
                 "tags": [
                     "desafios"
                 ],
-                "summary": "Registrar check-in (prova de treino)",
+                "summary": "Candidatar-se à vaga de instrutor (perfil instrutor)",
                 "parameters": [
                     {
                         "type": "integer",
@@ -522,33 +1004,80 @@ const docTemplate = `{
                         "required": true
                     },
                     {
-                        "type": "string",
-                        "description": "Descrição (até 500 caracteres)",
-                        "name": "texto",
-                        "in": "formData"
-                    },
-                    {
-                        "type": "number",
-                        "description": "Latitude",
-                        "name": "latitude",
-                        "in": "formData"
-                    },
-                    {
-                        "type": "number",
-                        "description": "Longitude",
-                        "name": "longitude",
-                        "in": "formData"
-                    },
-                    {
-                        "type": "file",
-                        "description": "Foto",
-                        "name": "foto",
-                        "in": "formData"
+                        "description": "Lance e mensagem",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.CandidatarRequest"
+                        }
                     }
                 ],
                 "responses": {
                     "201": {
                         "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "desafios"
+                ],
+                "summary": "Retirar a própria candidatura (perfil instrutor)",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID do desafio",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/desafios/{id}/candidaturas/{cid}/escolher": {
+            "post": {
+                "description": "O lance vira o valor fixo do instrutor; a diferença teto - lance volta para a academia. Notifica o escolhido e os não escolhidos. Devolve o desafio atualizado.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "desafios"
+                ],
+                "summary": "Escolher o instrutor da vaga (só a academia dona)",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID do desafio",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "ID da candidatura",
+                        "name": "cid",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -564,7 +1093,7 @@ const docTemplate = `{
                 "tags": [
                     "desafios"
                 ],
-                "summary": "Convidar um amigo para o desafio aberto (só criador)",
+                "summary": "Convidar um amigo para o desafio aberto (atleta)",
                 "parameters": [
                     {
                         "description": "Amigo convidado",
@@ -584,7 +1113,7 @@ const docTemplate = `{
                 "tags": [
                     "desafios"
                 ],
-                "summary": "Entrar no desafio (debita a entrada)",
+                "summary": "Inscrever-se no desafio (só atleta; debita a entrada e gera o ingresso)",
                 "responses": {}
             }
         },
@@ -593,8 +1122,145 @@ const docTemplate = `{
                 "tags": [
                     "desafios"
                 ],
-                "summary": "Iniciar desafio (só criador, mínimo 2 participantes)",
+                "summary": "Iniciar desafio (instrutor designado ou academia dona; fecha as inscrições)",
                 "responses": {}
+            }
+        },
+        "/api/desafios/{id}/podio": {
+            "get": {
+                "description": "Lista vazia enquanto o desafio não estiver encerrado",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "desafios"
+                ],
+                "summary": "Pódio do desafio",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID do desafio",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Exatamente min(posicoes_podio, presentes) posições, só presentes, sem repetir, marca obrigatória. Divide o pote, credita os prêmios, aplica pontos e encerra o desafio. Devolve o desafio encerrado.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "desafios"
+                ],
+                "summary": "Lançar pódio (instrutor designado ou academia dona)",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID do desafio",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Posições (índice 0 = 1º lugar)",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.LancarPodioRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/desafios/{id}/presenca": {
+            "post": {
+                "description": "Corpo: {\"codigo_ingresso\": \"\u003cQR\u003e\"} OU {\"id_usuario\": N}. Idempotente. Em aberto só no dia do evento; em andamento a qualquer momento.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "desafios"
+                ],
+                "summary": "Marcar presença (instrutor designado ou academia dona)",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID do desafio",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Ingresso ou usuário",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.PresencaRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/desafios/{id}/presentes": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "desafios"
+                ],
+                "summary": "Atletas presentes (instrutor designado ou academia dona)",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID do desafio",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
             }
         },
         "/api/desafios/{id}/sair": {
@@ -602,31 +1268,242 @@ const docTemplate = `{
                 "tags": [
                     "desafios"
                 ],
-                "summary": "Sair do desafio aberto (reembolsa a entrada)",
+                "summary": "Sair do desafio aberto (só atleta; reembolsa a entrada)",
                 "responses": {}
             }
         },
-        "/api/desafios/{id}/votar": {
-            "post": {
-                "consumes": [
+        "/api/instrutor/agenda": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Desafios em que o instrutor logado é o instrutor designado (DesafioResponse), paginados. Sem status: abertos e em andamento por data_evento crescente. Exige perfil instrutor.",
+                "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "desafios"
+                    "instrutores"
                 ],
-                "summary": "Votar em outro participante",
+                "summary": "Agenda do instrutor",
                 "parameters": [
                     {
-                        "description": "Participante votado",
+                        "type": "string",
+                        "description": "aberto | em_andamento | encerrado | cancelado",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Página (1..)",
+                        "name": "pagina",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Itens por página (padrão 20, máx. 100)",
+                        "name": "limite",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/models.ListaDesafiosResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/instrutor/vagas": {
+            "get": {
+                "description": "Desafios abertos, com data futura, vaga de instrutor aberta e sem escolhido, do evento mais próximo ao mais distante. Cada item traz ` + "`" + `vaga` + "`" + ` (teto, modo de pagamento, % e a candidatura do próprio instrutor). Filtros: categoria, q, id_academia, pagina, limite.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "instrutor"
+                ],
+                "summary": "Vagas de instrutor abertas (perfil instrutor)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Categoria",
+                        "name": "categoria",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Texto livre (título, local, academia)",
+                        "name": "q",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Só desta academia",
+                        "name": "id_academia",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Página (1..)",
+                        "name": "pagina",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Itens por página (máx. 100)",
+                        "name": "limite",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/instrutores": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Lista os instrutores cadastrados (nome, CREF, especialidade e se são autônomos). Exige login; não expõe e-mail nem CPF. Para os instrutores da sua academia use GET /api/academia/instrutores.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "instrutores"
+                ],
+                "summary": "Diretório de instrutores",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/models.InstrutorResponse"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "O usuário LOGADO (JWT) ativa o próprio perfil de instrutor (autônomo). Não aceita id_usuario nem id_academia: o vínculo com a academia é feito por ela em POST /api/academia/instrutores. Só contas de atleta, sem inscrição em desafio aberto/em andamento. O perfil muda na hora (não precisa novo login).",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "instrutores"
+                ],
+                "summary": "Tornar-se instrutor",
+                "parameters": [
+                    {
+                        "description": "CREF e especialidade",
                         "name": "body",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/models.VotarRequest"
+                            "$ref": "#/definitions/models.CriarInstrutorRequest"
                         }
                     }
                 ],
-                "responses": {}
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/models.InstrutorResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
             }
         },
         "/api/login": {
@@ -863,6 +1740,26 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/plataforma/taxas": {
+            "get": {
+                "description": "taxa_inscricao_pct é gravada no desafio na criação; tarifa_saque_centavos é 0 fora do modo inscricao_saque.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "plataforma"
+                ],
+                "summary": "Taxas vigentes da plataforma",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/ranking/amigos": {
             "get": {
                 "description": "Usuário do token + amigos aceitos. Pontos = exercícios concluídos + 3 x check-ins de desafio no período.",
@@ -997,6 +1894,76 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/usuarios/buscar": {
+            "get": {
+                "description": "Busca usuários por nome ou username (tempo real)",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "usuarios"
+                ],
+                "summary": "Buscar usuários",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Texto de busca",
+                        "name": "q",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/usuarios/ingressos": {
+            "get": {
+                "description": "Inscrições do usuário logado como ingressos: codigo_ingresso REAL (conteúdo do QR lido pelo instrutor em POST /desafios/{id}/presenca), dados do evento, academia e presença",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "usuarios"
+                ],
+                "summary": "Listar ingressos do usuário",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/models.IngressoResponse"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/usuarios/me": {
             "get": {
                 "description": "Perfil completo (inclui e-mail, CPF e saldo) — somente do dono do token",
@@ -1084,6 +2051,26 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/usuarios/ultima-vez": {
+            "patch": {
+                "description": "Atualiza o timestamp de última vez online do usuário autenticado",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "usuarios"
+                ],
+                "summary": "Heartbeat de presença",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/usuarios/{id}": {
             "get": {
                 "description": "Retorna somente id, nome e sobrenome",
@@ -1112,6 +2099,79 @@ const docTemplate = `{
                     },
                     "404": {
                         "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/utils.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/usuarios/{id}/historico": {
+            "get": {
+                "description": "Desafios encerrados em que o usuário esteve inscrito, com o resultado DELE: posição no pódio, marca e prêmio (perfil público; não expõe os demais participantes)",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "usuarios"
+                ],
+                "summary": "Histórico de desafios",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID do usuário",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/utils.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/models.HistoricoDesafioResponse"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "/api/usuarios/{id}/publico": {
+            "get": {
+                "description": "Retorna dados públicos de um usuário pelo ID (sem CPF, email, saldo)",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "usuarios"
+                ],
+                "summary": "Perfil público",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID do usuário",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/utils.APIResponse"
                         }
@@ -1149,6 +2209,17 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "models.AcademiaResumo": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "integer"
+                },
+                "nome_fantasia": {
+                    "type": "string"
+                }
+            }
+        },
         "models.AlterarSenhaRequest": {
             "type": "object",
             "required": [
@@ -1234,6 +2305,90 @@ const docTemplate = `{
                 }
             }
         },
+        "models.AvaliarDesafioRequest": {
+            "type": "object",
+            "required": [
+                "nota"
+            ],
+            "properties": {
+                "nota": {
+                    "type": "integer",
+                    "maximum": 5,
+                    "minimum": 1
+                }
+            }
+        },
+        "models.CandidatarRequest": {
+            "type": "object",
+            "properties": {
+                "lance_centavos": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "mensagem": {
+                    "type": "string",
+                    "maxLength": 500
+                }
+            }
+        },
+        "models.CandidatoResumo": {
+            "type": "object",
+            "properties": {
+                "cref": {
+                    "type": "string"
+                },
+                "especialidade": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "nome": {
+                    "type": "string"
+                },
+                "vinculado": {
+                    "description": "vinculado a esta academia",
+                    "type": "boolean"
+                }
+            }
+        },
+        "models.CandidaturaResponse": {
+            "type": "object",
+            "properties": {
+                "atualizado_em": {
+                    "type": "string"
+                },
+                "criado_em": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "id_desafio": {
+                    "type": "integer"
+                },
+                "instrutor": {
+                    "description": "só na lista da academia dona",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.CandidatoResumo"
+                        }
+                    ]
+                },
+                "lance": {
+                    "type": "number"
+                },
+                "lance_centavos": {
+                    "type": "integer"
+                },
+                "mensagem": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
         "models.ConvidarRequest": {
             "type": "object",
             "required": [
@@ -1245,20 +2400,113 @@ const docTemplate = `{
                 }
             }
         },
+        "models.CriarAcademiaRequest": {
+            "type": "object",
+            "required": [
+                "cnpj",
+                "email",
+                "nome",
+                "nome_fantasia",
+                "razao_social",
+                "senha"
+            ],
+            "properties": {
+                "cnpj": {
+                    "description": "Aceita com ou sem pontuação",
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "endereco": {
+                    "type": "string"
+                },
+                "nome": {
+                    "type": "string",
+                    "maxLength": 100,
+                    "minLength": 2
+                },
+                "nome_fantasia": {
+                    "type": "string",
+                    "maxLength": 150,
+                    "minLength": 2
+                },
+                "razao_social": {
+                    "type": "string",
+                    "maxLength": 150,
+                    "minLength": 2
+                },
+                "senha": {
+                    "type": "string",
+                    "minLength": 6
+                },
+                "sobrenome": {
+                    "type": "string",
+                    "maxLength": 100
+                },
+                "telefone": {
+                    "type": "string"
+                }
+            }
+        },
         "models.CriarDesafioRequest": {
             "type": "object",
             "required": [
+                "data_evento",
+                "local",
+                "posicoes_podio",
                 "titulo",
-                "valor_entrada_centavos"
+                "vagas"
             ],
             "properties": {
-                "data_encerramento": {
-                    "description": "DataEncerramento aceita \"YYYY-MM-DD\" (vale até o fim do dia) ou RFC3339.",
+                "categoria": {
+                    "type": "string",
+                    "maxLength": 30
+                },
+                "data_evento": {
+                    "description": "DataEvento aceita RFC3339 (\"2026-11-20T09:00:00-03:00\") ou \"YYYY-MM-DDTHH:MM\" / \"YYYY-MM-DD HH:MM\"\n(horário local do servidor). Precisa estar no futuro.",
                     "type": "string"
                 },
                 "descricao": {
                     "type": "string",
                     "maxLength": 2000
+                },
+                "dividir_pote": {
+                    "type": "boolean"
+                },
+                "id_instrutor": {
+                    "description": "Instrutor: instrutor_selecao \"designado\" (padrão; exige id_instrutor vinculado) ou \"vaga_aberta\"\n(sem id_instrutor; exige instrutor_teto_centavos; instrutores se candidatam com um lance \u003c= teto).\ninstrutor_modo_pagamento: fixo (padrão) | percentual | fixo_percentual.",
+                    "type": "integer"
+                },
+                "instrutor_fixo_centavos": {
+                    "type": "integer",
+                    "maximum": 10000000,
+                    "minimum": 0
+                },
+                "instrutor_modo_pagamento": {
+                    "type": "string",
+                    "enum": [
+                        "fixo",
+                        "percentual",
+                        "fixo_percentual"
+                    ]
+                },
+                "instrutor_pct": {
+                    "type": "integer",
+                    "maximum": 100,
+                    "minimum": 0
+                },
+                "instrutor_selecao": {
+                    "type": "string",
+                    "enum": [
+                        "designado",
+                        "vaga_aberta"
+                    ]
+                },
+                "instrutor_teto_centavos": {
+                    "type": "integer",
+                    "maximum": 10000000,
+                    "minimum": 0
                 },
                 "latitude": {
                     "type": "number",
@@ -1274,6 +2522,22 @@ const docTemplate = `{
                     "maximum": 180,
                     "minimum": -180
                 },
+                "percentual_pote": {
+                    "type": "integer",
+                    "maximum": 100,
+                    "minimum": 0
+                },
+                "posicoes_podio": {
+                    "type": "integer",
+                    "maximum": 5,
+                    "minimum": 1
+                },
+                "premio_fixo_centavos": {
+                    "description": "Premiação: prêmio fixo (reservado do saldo da academia) + parcela das inscrições (percentual_pote\nde T, se dividir_pote). dividir_pote omitido = true; percentual_pote omitido = o máximo permitido\n(100 - taxa da plataforma - instrutor_pct). Com dividir_pote=false, percentual_pote é gravado 0.",
+                    "type": "integer",
+                    "maximum": 10000000,
+                    "minimum": 0
+                },
                 "titulo": {
                     "type": "string",
                     "maxLength": 200,
@@ -1281,13 +2545,30 @@ const docTemplate = `{
                 },
                 "vagas": {
                     "type": "integer",
-                    "maximum": 50,
+                    "maximum": 500,
                     "minimum": 2
                 },
                 "valor_entrada_centavos": {
                     "type": "integer",
                     "maximum": 1000000,
-                    "minimum": 100
+                    "minimum": 0
+                }
+            }
+        },
+        "models.CriarInstrutorRequest": {
+            "type": "object",
+            "required": [
+                "cref"
+            ],
+            "properties": {
+                "cref": {
+                    "type": "string",
+                    "maxLength": 20,
+                    "minLength": 4
+                },
+                "especialidade": {
+                    "type": "string",
+                    "maxLength": 100
                 }
             }
         },
@@ -1339,6 +2620,311 @@ const docTemplate = `{
                 }
             }
         },
+        "models.DashboardAcademiaResponse": {
+            "type": "object",
+            "properties": {
+                "academia": {
+                    "$ref": "#/definitions/models.AcademiaResumo"
+                },
+                "avaliacao_media": {
+                    "description": "AvaliacaoMedia (0 a 5, duas casas) considera só avaliações dos desafios desta academia.",
+                    "type": "number"
+                },
+                "avaliacoes_total": {
+                    "type": "integer"
+                },
+                "desafios_por_status": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "integer",
+                        "format": "int64"
+                    }
+                },
+                "inscritos_mes": {
+                    "description": "InscritosMes: inscrições feitas no mês corrente em desafios não cancelados da academia.",
+                    "type": "integer"
+                },
+                "instrutores_vinculados": {
+                    "type": "integer"
+                },
+                "pote_em_jogo": {
+                    "type": "number"
+                },
+                "pote_em_jogo_centavos": {
+                    "description": "PoteEmJogo: soma das entradas dos inscritos em desafios abertos ou em andamento.",
+                    "type": "integer"
+                },
+                "proximos_eventos": {
+                    "description": "ProximosEventos: até 5 desafios abertos com data_evento futura, do mais próximo ao mais distante.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.DesafioResponse"
+                    }
+                },
+                "taxa_presenca": {
+                    "description": "TaxaPresenca é o percentual (0 a 100, uma casa) de inscritos presentes nos desafios em andamento\ne encerrados; 0 quando não há base.",
+                    "type": "number"
+                },
+                "total_desafios": {
+                    "description": "TotalDesafios soma todos os status; DesafiosPorStatus sempre traz as 4 chaves (0 quando vazio).",
+                    "type": "integer"
+                }
+            }
+        },
+        "models.DesafioResponse": {
+            "type": "object",
+            "properties": {
+                "academia": {
+                    "description": "null só em legados",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.AcademiaResumo"
+                        }
+                    ]
+                },
+                "categoria": {
+                    "type": "string"
+                },
+                "criado_em": {
+                    "type": "string"
+                },
+                "data_evento": {
+                    "description": "null só em desafios legados",
+                    "type": "string"
+                },
+                "descricao": {
+                    "type": "string"
+                },
+                "financeiro": {
+                    "$ref": "#/definitions/models.FinanceiroResponse"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "instrutor": {
+                    "description": "null se sem instrutor (legados)",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.InstrutorResumo"
+                        }
+                    ]
+                },
+                "instrutor_ganho": {
+                    "$ref": "#/definitions/models.GanhoInstrutorResponse"
+                },
+                "instrutor_selecao": {
+                    "type": "string"
+                },
+                "latitude": {
+                    "type": "number"
+                },
+                "local": {
+                    "type": "string"
+                },
+                "longitude": {
+                    "type": "number"
+                },
+                "participantes": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.ParticipanteResponse"
+                    }
+                },
+                "participantes_count": {
+                    "type": "integer"
+                },
+                "pode_avaliar": {
+                    "type": "boolean"
+                },
+                "pode_cancelar": {
+                    "type": "boolean"
+                },
+                "pode_candidatar": {
+                    "description": "PodeCandidatar: instrutor pode dar lance (vaga aberta, desafio aberto, evento futuro).\nPodeEscolherInstrutor: academia dona pode escolher entre os candidatos.",
+                    "type": "boolean"
+                },
+                "pode_editar": {
+                    "type": "boolean"
+                },
+                "pode_entrar": {
+                    "description": "Flags de ação para o usuário logado",
+                    "type": "boolean"
+                },
+                "pode_escolher_instrutor": {
+                    "type": "boolean"
+                },
+                "pode_iniciar": {
+                    "type": "boolean"
+                },
+                "pode_lancar_podio": {
+                    "type": "boolean"
+                },
+                "pode_marcar_presenca": {
+                    "type": "boolean"
+                },
+                "pode_sair": {
+                    "type": "boolean"
+                },
+                "podio": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.PodioResponse"
+                    }
+                },
+                "posicoes_podio": {
+                    "type": "integer"
+                },
+                "pote": {
+                    "type": "number"
+                },
+                "pote_centavos": {
+                    "type": "integer"
+                },
+                "premiacao": {
+                    "description": "Premiacao (todos): prêmio total previsto + lista por posição. Financeiro só vai para a academia\ndona, InstrutorGanho para o instrutor designado e Vaga para instrutores (oferta da vaga aberta).",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.PremiacaoResponse"
+                        }
+                    ]
+                },
+                "premiacao_prevista_centavos": {
+                    "description": "PremiacaoPrevistaCentavos tem posicoes_podio itens: a divisão do pote ATUAL pela tabela da\nquantidade de posições (se houver menos presentes que posições, os valores finais são renormalizados).",
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "presentes_count": {
+                    "type": "integer"
+                },
+                "seu_codigo_ingresso": {
+                    "description": "só para o próprio atleta inscrito",
+                    "type": "string"
+                },
+                "status": {
+                    "$ref": "#/definitions/models.StatusDesafio"
+                },
+                "titulo": {
+                    "type": "string"
+                },
+                "vaga": {
+                    "$ref": "#/definitions/models.VagaInstrutorResponse"
+                },
+                "vaga_instrutor_aberta": {
+                    "description": "VagaInstrutorAberta: a vaga de instrutor segue aberta (sem escolhido); o desafio não pode ser iniciado.",
+                    "type": "boolean"
+                },
+                "vagas": {
+                    "type": "integer"
+                },
+                "valor_entrada": {
+                    "type": "number"
+                },
+                "valor_entrada_centavos": {
+                    "type": "integer"
+                },
+                "voce_participa": {
+                    "description": "Do usuário logado",
+                    "type": "boolean"
+                },
+                "voce_presente": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "models.EditarDesafioRequest": {
+            "type": "object",
+            "properties": {
+                "categoria": {
+                    "type": "string",
+                    "maxLength": 30
+                },
+                "data_evento": {
+                    "type": "string"
+                },
+                "descricao": {
+                    "type": "string",
+                    "maxLength": 2000
+                },
+                "dividir_pote": {
+                    "type": "boolean"
+                },
+                "id_instrutor": {
+                    "type": "integer",
+                    "minimum": 1
+                },
+                "instrutor_fixo_centavos": {
+                    "type": "integer",
+                    "maximum": 10000000,
+                    "minimum": 0
+                },
+                "instrutor_modo_pagamento": {
+                    "type": "string",
+                    "enum": [
+                        "fixo",
+                        "percentual",
+                        "fixo_percentual"
+                    ]
+                },
+                "instrutor_pct": {
+                    "type": "integer",
+                    "maximum": 100,
+                    "minimum": 0
+                },
+                "instrutor_teto_centavos": {
+                    "type": "integer",
+                    "maximum": 10000000,
+                    "minimum": 0
+                },
+                "latitude": {
+                    "type": "number",
+                    "maximum": 90,
+                    "minimum": -90
+                },
+                "local": {
+                    "type": "string",
+                    "maxLength": 200,
+                    "minLength": 1
+                },
+                "longitude": {
+                    "type": "number",
+                    "maximum": 180,
+                    "minimum": -180
+                },
+                "percentual_pote": {
+                    "type": "integer",
+                    "maximum": 100,
+                    "minimum": 0
+                },
+                "posicoes_podio": {
+                    "type": "integer",
+                    "maximum": 5,
+                    "minimum": 1
+                },
+                "premio_fixo_centavos": {
+                    "description": "Financeiro (mesmas regras da criação; a taxa da plataforma fica a do snapshot). Com atletas\ninscritos o prêmio só pode aumentar. Depois de escolhido o instrutor da vaga aberta, os campos\ninstrutor_* ficam travados.",
+                    "type": "integer",
+                    "maximum": 10000000,
+                    "minimum": 0
+                },
+                "titulo": {
+                    "type": "string",
+                    "maxLength": 200,
+                    "minLength": 3
+                },
+                "vagas": {
+                    "type": "integer",
+                    "maximum": 500,
+                    "minimum": 2
+                },
+                "valor_entrada_centavos": {
+                    "type": "integer",
+                    "maximum": 1000000,
+                    "minimum": 0
+                }
+            }
+        },
         "models.EsqueciSenhaRequest": {
             "type": "object",
             "required": [
@@ -1347,6 +2933,322 @@ const docTemplate = `{
             "properties": {
                 "email": {
                     "type": "string"
+                }
+            }
+        },
+        "models.FinanceiroResponse": {
+            "type": "object",
+            "properties": {
+                "arrecadacao_centavos": {
+                    "description": "entradas dos inscritos (T)",
+                    "type": "integer"
+                },
+                "candidaturas_pendentes": {
+                    "type": "integer"
+                },
+                "dividir_pote": {
+                    "type": "boolean"
+                },
+                "instrutor_fixo_centavos": {
+                    "type": "integer"
+                },
+                "instrutor_modo_pagamento": {
+                    "type": "string"
+                },
+                "instrutor_pct": {
+                    "type": "integer"
+                },
+                "instrutor_pct_centavos": {
+                    "type": "integer"
+                },
+                "instrutor_selecao": {
+                    "type": "string"
+                },
+                "instrutor_teto_centavos": {
+                    "type": "integer"
+                },
+                "instrutor_total_centavos": {
+                    "type": "integer"
+                },
+                "liquido_previsto_centavos": {
+                    "description": "o que a academia recebe de volta no encerramento",
+                    "type": "integer"
+                },
+                "percentual_pote": {
+                    "type": "integer"
+                },
+                "pote_premio_centavos": {
+                    "description": "parcela das inscrições que vai para os atletas",
+                    "type": "integer"
+                },
+                "premio_fixo_centavos": {
+                    "type": "integer"
+                },
+                "premio_total_centavos": {
+                    "type": "integer"
+                },
+                "reserva_centavos": {
+                    "description": "garantia debitada do saldo da academia",
+                    "type": "integer"
+                },
+                "resultado_previsto_centavos": {
+                    "description": "liquido - reserva (negativo = custo da academia)",
+                    "type": "integer"
+                },
+                "taxa_plataforma_centavos": {
+                    "type": "integer"
+                },
+                "taxa_plataforma_pct": {
+                    "type": "integer"
+                }
+            }
+        },
+        "models.GanhoInstrutorResponse": {
+            "type": "object",
+            "properties": {
+                "fixo_centavos": {
+                    "type": "integer"
+                },
+                "modo_pagamento": {
+                    "type": "string"
+                },
+                "pct": {
+                    "type": "integer"
+                },
+                "pct_centavos": {
+                    "description": "previsto, sobre as inscrições atuais",
+                    "type": "integer"
+                },
+                "total_previsto_centavos": {
+                    "type": "integer"
+                }
+            }
+        },
+        "models.HistoricoDesafioResponse": {
+            "type": "object",
+            "properties": {
+                "academia": {
+                    "$ref": "#/definitions/models.AcademiaResumo"
+                },
+                "categoria": {
+                    "type": "string"
+                },
+                "criado_em": {
+                    "type": "string"
+                },
+                "data_encerramento": {
+                    "type": "string"
+                },
+                "data_evento": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "local": {
+                    "type": "string"
+                },
+                "marca": {
+                    "type": "string"
+                },
+                "participantes_count": {
+                    "type": "integer"
+                },
+                "posicao": {
+                    "description": "Posicao/Marca vêm do pódio; null/\"\" quando o usuário ficou fora do pódio.",
+                    "type": "integer"
+                },
+                "premio": {
+                    "type": "number"
+                },
+                "premio_centavos": {
+                    "type": "integer"
+                },
+                "presente": {
+                    "description": "Presente: o usuário esteve no evento (só presentes entram no pódio).",
+                    "type": "boolean"
+                },
+                "status": {
+                    "$ref": "#/definitions/models.StatusDesafio"
+                },
+                "titulo": {
+                    "type": "string"
+                },
+                "valor_entrada": {
+                    "type": "number"
+                },
+                "valor_entrada_centavos": {
+                    "type": "integer"
+                },
+                "vencedor": {
+                    "description": "1º colocado",
+                    "type": "boolean"
+                }
+            }
+        },
+        "models.IngressoResponse": {
+            "type": "object",
+            "properties": {
+                "academia": {
+                    "description": "null só em legados",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.AcademiaResumo"
+                        }
+                    ]
+                },
+                "categoria": {
+                    "type": "string"
+                },
+                "codigo_ingresso": {
+                    "description": "CodigoIngresso é o conteúdo do QR (32 hex): o mesmo ` + "`" + `seu_codigo_ingresso` + "`" + ` do desafio.",
+                    "type": "string"
+                },
+                "data": {
+                    "description": "Data é a data do evento (data_evento); null só em desafios legados sem data.",
+                    "type": "string"
+                },
+                "id_desafio": {
+                    "type": "integer"
+                },
+                "local": {
+                    "type": "string"
+                },
+                "presente": {
+                    "type": "boolean"
+                },
+                "presente_em": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "titulo": {
+                    "type": "string"
+                },
+                "valor_entrada_centavos": {
+                    "type": "integer"
+                }
+            }
+        },
+        "models.InstrutorResponse": {
+            "type": "object",
+            "properties": {
+                "autonomo": {
+                    "description": "true = sem vínculo com academia",
+                    "type": "boolean"
+                },
+                "cref": {
+                    "type": "string"
+                },
+                "especialidade": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "nome": {
+                    "type": "string"
+                },
+                "sobrenome": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.InstrutorResumo": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "integer"
+                },
+                "nome": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.InstrutorVinculadoResponse": {
+            "type": "object",
+            "properties": {
+                "cref": {
+                    "type": "string"
+                },
+                "desafios_ativos": {
+                    "description": "desafios abertos ou em andamento em que ele é o instrutor",
+                    "type": "integer"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "especialidade": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "id_usuario": {
+                    "type": "integer"
+                },
+                "nome": {
+                    "type": "string"
+                },
+                "sobrenome": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.LancarPodioRequest": {
+            "type": "object",
+            "required": [
+                "posicoes"
+            ],
+            "properties": {
+                "posicoes": {
+                    "type": "array",
+                    "maxItems": 5,
+                    "minItems": 1,
+                    "items": {
+                        "$ref": "#/definitions/models.PodioEntrada"
+                    }
+                }
+            }
+        },
+        "models.ListaDesafiosResponse": {
+            "type": "object",
+            "properties": {
+                "itens": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.DesafioResponse"
+                    }
+                },
+                "limite": {
+                    "type": "integer"
+                },
+                "pagina": {
+                    "type": "integer"
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "models.ListaInstrutoresVinculadosResponse": {
+            "type": "object",
+            "properties": {
+                "itens": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.InstrutorVinculadoResponse"
+                    }
+                },
+                "limite": {
+                    "type": "integer"
+                },
+                "pagina": {
+                    "type": "integer"
+                },
+                "total": {
+                    "type": "integer"
                 }
             }
         },
@@ -1381,6 +3283,106 @@ const docTemplate = `{
                     "maximum": 100000000,
                     "minimum": 500,
                     "example": 5000
+                }
+            }
+        },
+        "models.ParticipanteResponse": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "integer"
+                },
+                "nome": {
+                    "type": "string"
+                },
+                "premio": {
+                    "type": "number"
+                },
+                "premio_centavos": {
+                    "type": "integer"
+                },
+                "presente": {
+                    "type": "boolean"
+                },
+                "presente_em": {
+                    "type": "string"
+                },
+                "sobrenome": {
+                    "type": "string"
+                },
+                "vencedor": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "models.PodioEntrada": {
+            "type": "object",
+            "required": [
+                "id_participante",
+                "marca"
+            ],
+            "properties": {
+                "id_participante": {
+                    "type": "integer"
+                },
+                "marca": {
+                    "type": "string",
+                    "maxLength": 50
+                }
+            }
+        },
+        "models.PodioResponse": {
+            "type": "object",
+            "properties": {
+                "id_participante": {
+                    "type": "integer"
+                },
+                "marca": {
+                    "type": "string"
+                },
+                "nome": {
+                    "type": "string"
+                },
+                "posicao": {
+                    "type": "integer"
+                },
+                "premio": {
+                    "type": "number"
+                },
+                "premio_centavos": {
+                    "type": "integer"
+                },
+                "sobrenome": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.PremiacaoResponse": {
+            "type": "object",
+            "properties": {
+                "por_posicao_centavos": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "premio_total": {
+                    "type": "number"
+                },
+                "premio_total_centavos": {
+                    "type": "integer"
+                }
+            }
+        },
+        "models.PresencaRequest": {
+            "type": "object",
+            "properties": {
+                "codigo_ingresso": {
+                    "type": "string",
+                    "maxLength": 64
+                },
+                "id_usuario": {
+                    "type": "integer"
                 }
             }
         },
@@ -1433,14 +3435,47 @@ const docTemplate = `{
                 }
             }
         },
-        "models.VotarRequest": {
+        "models.StatusDesafio": {
+            "type": "string",
+            "enum": [
+                "aberto",
+                "em_andamento",
+                "encerrado",
+                "cancelado"
+            ],
+            "x-enum-varnames": [
+                "StatusAberto",
+                "StatusEmAndamento",
+                "StatusEncerrado",
+                "StatusCancelado"
+            ]
+        },
+        "models.VagaInstrutorResponse": {
+            "type": "object",
+            "properties": {
+                "minha_candidatura": {
+                    "$ref": "#/definitions/models.CandidaturaResponse"
+                },
+                "modo_pagamento": {
+                    "type": "string"
+                },
+                "pct": {
+                    "type": "integer"
+                },
+                "teto_centavos": {
+                    "type": "integer"
+                }
+            }
+        },
+        "models.VincularInstrutorRequest": {
             "type": "object",
             "required": [
-                "id_votado"
+                "email"
             ],
             "properties": {
-                "id_votado": {
-                    "type": "integer"
+                "email": {
+                    "type": "string",
+                    "maxLength": 150
                 }
             }
         },

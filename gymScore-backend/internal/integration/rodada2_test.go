@@ -177,7 +177,7 @@ func TestSwagger_SoForaDeProducao(t *testing.T) {
 // ─── #2/#4 Invariante do ledger com usuário migrado do schema antigo ─────────
 
 func TestMigracao_UsuariosLegadosTemLastroNoLedger(t *testing.T) {
-	const nome = "gymscore_it_mig"
+	nome := nomeBanco + "_mig"
 	admin, err := gorm.Open(mysql.Open(dsnAdmin), &gorm.Config{Logger: logger.Discard})
 	if err != nil {
 		t.Fatal(err)
@@ -273,7 +273,9 @@ func TestMigracao_UsuariosLegadosTemLastroNoLedger(t *testing.T) {
 		t.Fatalf("login do usuário migrado: %d %s", login.Status, login.Raw)
 	}
 	tok := login.data()["token"].(string)
-	esperarEm(t, chamar(t, srv, "POST", "/api/desafios", tok, map[string]any{"titulo": "Pós-migração", "valor_entrada_centavos": 2000}), 201)
+	// semeia (direto no banco migrado) um desafio de academia e inscreve o usuário legado pela API
+	idDesafio := semearDesafioEm(t, dbm, 2000)
+	esperarEm(t, chamar(t, srv, "POST", fmt.Sprintf("/api/desafios/%d/entrar", idDesafio), tok, nil), 200)
 	esperarEm(t, chamar(t, srv, "GET", "/api/carteira", tok, nil), 200)
 	s, _ := carteira.Saldo(ids[0])
 	soma, _ := carteira.SomaLedger(ids[0])
@@ -304,4 +306,33 @@ func esperarEm(t *testing.T, r resp, status int) {
 	if r.Status != status {
 		t.Fatalf("esperava HTTP %d, obteve %d: %s", status, r.Status, r.Raw)
 	}
+}
+
+// semearDesafioEm insere (direto no banco informado) academia + instrutor + desafio aberto e devolve o id.
+func semearDesafioEm(t *testing.T, d *gorm.DB, entrada int64) uint {
+	t.Helper()
+	n := seq.Add(1)
+	ua := &models.Usuario{Nome: "Academia", Sobrenome: "Seed", Email: fmt.Sprintf("seed.acad%d_%d@gymscore.test", n, time.Now().UnixNano()), Senha: "x", Perfil: "academia"}
+	ui := &models.Usuario{Nome: "Instrutor", Sobrenome: "Seed", Email: fmt.Sprintf("seed.inst%d_%d@gymscore.test", n, time.Now().UnixNano()), Senha: "x", Perfil: "instrutor"}
+	if err := d.Create(ua).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := d.Create(ui).Error; err != nil {
+		t.Fatal(err)
+	}
+	ac := &models.Academia{IDUsuario: ua.ID, RazaoSocial: "Seed", NomeFantasia: "Seed", CNPJ: cnpjUnico()}
+	if err := d.Create(ac).Error; err != nil {
+		t.Fatal(err)
+	}
+	in := &models.Instrutor{IDUsuario: ui.ID, CREF: "1-G/SP", IDAcademia: &ac.ID}
+	if err := d.Create(in).Error; err != nil {
+		t.Fatal(err)
+	}
+	ev := time.Now().Add(48 * time.Hour)
+	des := &models.Desafio{Titulo: "Pós-migração", Categoria: "geral", ValorEntradaCentavos: entrada, DataEvento: &ev,
+		Vagas: 4, PosicoesPodio: 2, Status: models.StatusAberto, IDCriador: ua.ID, IDAcademia: &ac.ID, IDInstrutor: &in.ID}
+	if err := d.Create(des).Error; err != nil {
+		t.Fatal(err)
+	}
+	return des.ID
 }

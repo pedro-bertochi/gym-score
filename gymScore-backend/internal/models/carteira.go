@@ -28,6 +28,8 @@ type SaqueRequest struct {
 type SaldoResponse struct {
 	SaldoCentavos int64   `json:"saldo_centavos"`
 	Saldo         float64 `json:"saldo"` // reais, só exibição
+	// TarifaSaqueCentavos é a tarifa debitada junto de cada saque (0 = sem tarifa).
+	TarifaSaqueCentavos int64 `json:"tarifa_saque_centavos"`
 }
 
 // SaqueResponse descreve um saque.
@@ -39,6 +41,9 @@ type SaqueResponse struct {
 	AsaasTransferID *string   `json:"asaas_transfer_id,omitempty"`
 	Descricao       string    `json:"descricao,omitempty"`
 	CriadoEm        time.Time `json:"criado_em"`
+	// TarifaCentavos é a tarifa cobrada além do valor (0 se não há ou se foi devolvida com a falha do saque).
+	// O débito total no saldo é ValorCentavos + TarifaCentavos.
+	TarifaCentavos int64 `json:"tarifa_centavos"`
 }
 
 // ExtratoResponse é uma página do ledger do usuário.
@@ -56,36 +61,7 @@ type AsaasTransferResponse struct {
 	FailReason string `json:"failReason"`
 }
 
-// ─── Check-ins e ranking ─────────────────────────────────────────────────────
-
-// DesafioCheckin é a prova de treino de um participante (1 por dia).
-type DesafioCheckin struct {
-	ID        uint      `gorm:"primaryKey;autoIncrement"`
-	IDDesafio uint      `gorm:"column:id_desafio;not null"`
-	IDUsuario uint      `gorm:"column:id_usuario;not null"`
-	Texto     *string   `gorm:"column:texto;size:500"`
-	FotoPath  *string   `gorm:"column:foto_path;size:255"`
-	Latitude  *float64  `gorm:"column:latitude"`
-	Longitude *float64  `gorm:"column:longitude"`
-	Data      string    `gorm:"column:data;type:date;not null"`
-	CriadoEm  time.Time `gorm:"column:criado_em;autoCreateTime"`
-
-	Usuario *Usuario `gorm:"foreignKey:IDUsuario"`
-}
-
-func (DesafioCheckin) TableName() string { return "desafio_checkins" }
-
-// CheckinResponse é o DTO de um check-in.
-type CheckinResponse struct {
-	ID        uint           `json:"id"`
-	Usuario   UsuarioPublico `json:"usuario"`
-	Texto     string         `json:"texto,omitempty"`
-	FotoURL   string         `json:"foto_url,omitempty"`
-	Latitude  *float64       `json:"latitude,omitempty"`
-	Longitude *float64       `json:"longitude,omitempty"`
-	Data      string         `json:"data"`
-	CriadoEm  time.Time      `json:"criado_em"`
-}
+// ─── Ranking ─────────────────────────────────────────────────────────────────
 
 // RankingItem é uma linha do ranking entre amigos.
 type RankingItem struct {

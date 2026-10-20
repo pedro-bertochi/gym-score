@@ -10,11 +10,11 @@
 <body>
 <div class="pub-page">
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
-        <button onclick="history.back()" style="background:none;border:none;color:var(--text-muted);font-size:1.4rem;cursor:pointer;" aria-label="Voltar">←</button>
+        <button type="button" class="gs-voltar" onclick="history.back()" aria-label="Voltar">&larr; Voltar</button>
         <span style="font-size:1rem;font-weight:600;">Perfil</span>
     </div>
 
-    <div id="loadMsg" class="gs-msg" style="display:none;"></div>
+    <div id="loadMsg" class="gs-msg" style="display:none;" role="alert"></div>
 
     <div id="profileContent" hidden>
         <div class="pub-avatar" id="pubAvatar">👤</div>
@@ -78,27 +78,23 @@
             } else {
                 var ul = document.getElementById('histList');
                 hist.forEach(function(d) {
-                    var isVencedor = d.id_vencedor && d.id_vencedor === parseInt(idAlvo);
-                    var posHtml = '';
-                    if (isVencedor) {
-                        posHtml = '<span class="hist-pos p1">🥇 Vencedor</span>';
-                    }
-                    var data = d.data_encerramento || d.criado_em || '';
-                    var li = document.createElement('li');
-                    li.className = 'hist-item';
-                    li.innerHTML =
-                        '<div class="hist-titulo">' + esc(d.titulo) + '</div>' +
-                        '<div class="hist-meta">R$ ' + parseFloat(d.valor || 0).toFixed(2).replace('.', ',') + (data ? ' • ' + String(data).substring(0,10) : '') + '</div>' +
-                        posHtml;
-                    ul.appendChild(li);
+                    // Historico (Sprint 6): posicao (null fora do pódio), marca, data_evento
+                    var data = d.data_evento || d.criado_em || '';
+                    var meta = [];
+                    if (data) meta.push(fmtData(data));
+                    if (d.academia) meta.push(d.academia.nome_fantasia);
+                    if (d.marca) meta.push('marca ' + d.marca);
+                    ul.appendChild(h('li', { class: 'hist-item' }, [
+                        h('div', { class: 'hist-titulo', text: d.titulo }),
+                        h('div', { class: 'hist-meta', text: meta.join(' • ') }),
+                        d.posicao != null ? h('span', { class: 'hist-pos p' + Math.min(d.posicao, 3), text: d.posicao + 'º lugar' }) : null
+                    ]));
                 });
             }
         } catch (err) {
-            loadMsg.className = 'gs-msg error'; loadMsg.textContent = err.message; loadMsg.style.display = 'block';
+            loadMsg.className = 'gs-msg error'; loadMsg.textContent = mensagemErro(err); loadMsg.style.display = 'block';
         }
     }
-
-    function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
     carregarPerfil();
     renderBottomNav('/amigos');

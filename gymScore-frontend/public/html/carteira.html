@@ -10,8 +10,9 @@
 </head>
 <body>
 <main class="carteira-page">
+    <a class="gs-voltar" href="/menu">&larr; Voltar</a>
     <div class="gs-page-header" style="padding:0;margin-bottom:20px;">
-        <h1>💰 Carteira</h1>
+        <h1>Carteira</h1>
     </div>
 
     <!-- Saldo -->
@@ -19,12 +20,13 @@
         <div class="gs-label">Saldo disponível</div>
         <div class="saldo-row">
             <span class="saldo-grande" id="saldoValor">R$ •••</span>
-            <button type="button" class="eye-btn" id="saldoToggle" aria-label="Mostrar ou ocultar saldo"><span id="eyeIcon">🙈</span></button>
+            <button type="button" class="eye-btn" id="saldoToggle" aria-label="Mostrar ou ocultar saldo" aria-pressed="false"><span id="eyeIcon" aria-hidden="true">🙈</span></button>
         </div>
         <div class="saldo-acoes">
             <a href="/depositar" class="gs-btn gs-btn-primary">Depositar</a>
             <button type="button" class="gs-btn gs-btn-secondary" id="btnAbrirSaque">Sacar via PIX</button>
         </div>
+        <p class="gs-hint" id="saqueDica" hidden></p>
     </section>
 
     <!-- Saque PIX -->
@@ -33,7 +35,7 @@
         <form id="saqueForm" novalidate>
             <div class="gs-field">
                 <label class="gs-label" for="saqueValor">Valor (R$)</label>
-                <input type="text" inputmode="decimal" id="saqueValor" class="gs-input" placeholder="Mínimo 5,00" autocomplete="off">
+                <input type="text" id="saqueValor" class="gs-input" data-mask="moeda" data-max-centavos="1000000" placeholder="Mínimo 5,00" aria-describedby="saqueTarifaInfo">
             </div>
             <div class="gs-field">
                 <label class="gs-label" for="saqueTipo">Tipo da chave PIX</label>
@@ -47,9 +49,10 @@
             </div>
             <div class="gs-field">
                 <label class="gs-label" for="saqueChave">Chave PIX</label>
-                <input type="text" id="saqueChave" class="gs-input" autocomplete="off" maxlength="140">
+                <input type="text" id="saqueChave" class="gs-input" autocomplete="off" maxlength="140" inputmode="numeric">
             </div>
             <p class="gs-hint">Mínimo R$ 5,00 e máximo R$ 10.000,00 por saque. O valor é debitado na hora; se o PIX falhar, devolvemos o saldo automaticamente.</p>
+            <p class="gs-hint" id="saqueTarifaInfo" aria-live="polite" style="margin-top:8px;"></p>
             <div id="saqueMsg" class="gs-msg" aria-live="polite" style="margin:12px 0;"></div>
             <div class="saque-botoes">
                 <button type="submit" class="gs-btn gs-btn-primary" id="saqueEnviar">Solicitar saque</button>
@@ -69,6 +72,7 @@
         <div id="extratoVazio" class="extrato-vazio" hidden>
             <p>Nenhuma movimentação ainda.</p>
             <p class="gs-hint">Deposite via PIX para começar a participar de desafios.</p>
+            <a href="/depositar" class="gs-btn gs-btn-primary" style="margin-top:12px;">Depositar agora</a>
         </div>
         <div class="extrato-pag" id="extratoPag" hidden>
             <button type="button" class="gs-btn gs-btn-secondary" id="extratoAnt">← Mais recentes</button>
@@ -88,33 +92,49 @@
     var totalItens = 0;
     var saldoCentavos = 0;
     var acompanhando = {}; // id do saque -> true (polling ativo)
+    var tarifaCentavos = 0; // tarifa de saque (0 = sem tarifa), vem de GET /carteira
 
-    var TIPOS = {
-        deposito: 'Depósito PIX',
-        saque: 'Saque PIX',
-        entrada_desafio: 'Entrada em desafio',
-        estorno_desafio: 'Reembolso de desafio',
-        premio_desafio: 'Prêmio de desafio',
-        ajuste: 'Saldo inicial migrado'
-    };
     var STATUS = {
         pending: 'Pendente',
         received: 'Confirmado',
         concluido: 'Concluído',
         refunded: 'Estornado',
-        failed: 'Falhou'
+        failed: 'Devolvido'
     };
 
     // ── Saldo ────────────────────────────────────────────────────────────────
     function renderSaldo() {
         document.getElementById('saldoValor').textContent = Privacy.isHidden() ? 'R$ •••' : fmtBRL(saldoCentavos);
         document.getElementById('eyeIcon').textContent = Privacy.isHidden() ? '🙈' : '👁';
+        document.getElementById('saldoToggle').setAttribute('aria-pressed', Privacy.isHidden() ? 'false' : 'true');
+        atualizarSaque();
+    }
+
+    // Sacar fica desabilitado sem saldo para o mínimo (R$ 5,00 + tarifa)
+    function atualizarSaque() {
+        var minimo = 500 + tarifaCentavos;
+        var btn = document.getElementById('btnAbrirSaque');
+        var dica = document.getElementById('saqueDica');
+        var sem = saldoCentavos < minimo;
+        btn.disabled = sem;
+        dica.hidden = !sem;
+        dica.textContent = 'Saldo insuficiente para sacar: o mínimo é ' + fmtBRL(minimo) + (tarifaCentavos ? ' (R$ 5,00 + tarifa)' : '') + '.';
+        if (sem) document.getElementById('saqueBox').hidden = true;
+        atualizarTarifaInfo();
+    }
+    function atualizarTarifaInfo() {
+        var el = document.getElementById('saqueTarifaInfo');
+        if (!tarifaCentavos) { el.textContent = ''; return; }
+        var v = Mask.centavos(document.getElementById('saqueValor'));
+        el.textContent = 'Tarifa de saque: ' + fmtBRL(tarifaCentavos) + '. ' +
+            (v > 0 ? 'Será debitado ' + fmtBRL(v + tarifaCentavos) + ' do seu saldo (você recebe ' + fmtBRL(v) + ').' : 'O débito é o valor sacado mais a tarifa.');
     }
 
     async function carregarSaldo() {
         try {
             var resp = await API.carteira();
             saldoCentavos = resp.data.saldo_centavos;
+            tarifaCentavos = resp.data.tarifa_saque_centavos || 0;
             var u = Auth.getUser() || {};
             u.saldo_centavos = saldoCentavos;
             Auth.saveUser(u);
@@ -148,7 +168,7 @@
             });
         } catch (e) {
             msg.className = 'gs-msg error show';
-            msg.textContent = 'Erro ao carregar o extrato.';
+            msg.textContent = 'Erro ao carregar o extrato. ' + mensagemErro(e);
         }
     }
 
@@ -157,7 +177,7 @@
         var detalhe = it.descricao || '';
         return h('li', { class: 'extrato-item' }, [
             h('div', { class: 'extrato-info' }, [
-                h('span', { class: 'extrato-tipo', text: TIPOS[it.tipo] || 'Movimentação' }),
+                h('span', { class: 'extrato-tipo', text: rotuloTransacao(it.tipo) }),
                 detalhe ? h('span', { class: 'extrato-desc', text: detalhe }) : null,
                 h('span', { class: 'extrato-data', text: fmtDataHora(it.criado_em) })
             ]),
@@ -180,7 +200,7 @@
     // ── Saque PIX ────────────────────────────────────────────────────────────
     function abrirSaque(abrir) {
         document.getElementById('saqueBox').hidden = !abrir;
-        if (abrir) document.getElementById('saqueValor').focus();
+        if (abrir) { ajustarChave(); atualizarTarifaInfo(); document.getElementById('saqueValor').focus(); }
     }
 
     function msgSaque(texto, tipo) {
@@ -192,15 +212,26 @@
     async function enviarSaque(e) {
         e.preventDefault();
         msgSaque('');
-        var valor = reaisParaCentavos(document.getElementById('saqueValor').value);
+        var valor = Mask.centavos(document.getElementById('saqueValor'));
         var tipo = document.getElementById('saqueTipo').value;
         var chave = document.getElementById('saqueChave').value.trim();
 
-        if (valor === null || valor < 500) { msgSaque('O valor mínimo do saque é R$ 5,00.', 'error'); return; }
+        if (valor < 500) { msgSaque('O valor mínimo do saque é R$ 5,00.', 'error'); return; }
         if (valor > 1000000) { msgSaque('O valor máximo por saque é R$ 10.000,00.', 'error'); return; }
-        if (valor > saldoCentavos) { msgSaque('Saldo insuficiente para este saque.', 'error'); return; }
+        if (valor + tarifaCentavos > saldoCentavos) {
+            msgSaque(tarifaCentavos ? 'Saldo insuficiente: o saque de ' + fmtBRL(valor) + ' mais a tarifa de ' + fmtBRL(tarifaCentavos) + ' exige ' + fmtBRL(valor + tarifaCentavos) + '.' : 'Saldo insuficiente para este saque.', 'error');
+            return;
+        }
         if (!chave) { msgSaque('Informe a chave PIX.', 'error'); return; }
-        if (!confirm('Sacar ' + fmtBRL(valor) + ' para a chave PIX informada?')) return;
+        var erroChave = validarChave(tipo, chave);
+        if (erroChave) { msgSaque(erroChave, 'error'); return; }
+
+        var linhas = [['Valor do saque', fmtBRL(valor)]];
+        if (tarifaCentavos) linhas.push(['Tarifa de saque', fmtBRL(tarifaCentavos)], ['Total debitado', fmtBRL(valor + tarifaCentavos)]);
+        linhas.push(['Saldo após o saque', fmtBRL(saldoCentavos - valor - tarifaCentavos)], ['Chave PIX (' + tipo + ')', chave]);
+        var ok = await Modal.confirmar({ titulo: 'Confirmar saque?', mensagem: 'O valor é debitado agora e enviado por PIX. Se o PIX falhar, devolvemos o valor e a tarifa.',
+            linhas: linhas, confirmar: 'Sacar ' + fmtBRL(valor), cancelar: 'Voltar' });
+        if (!ok) return;
 
         var btn = document.getElementById('saqueEnviar');
         btnLoading(btn, true);
@@ -208,11 +239,12 @@
             var resp = await API.sacar(valor, chave, tipo);
             showToast('Saque solicitado!', 'success');
             document.getElementById('saqueForm').reset();
+            Mask.definirCentavos(document.getElementById('saqueValor'), 0);
             abrirSaque(false);
             await recarregarTudo();
             acompanharSaque(resp.data.id);
         } catch (err) {
-            msgSaque(err.message, 'error');
+            msgSaque(mensagemErro(err), 'error');
             if (err.status === 502) recarregarTudo(); // valor já devolvido pelo backend
         }
         btnLoading(btn, false);
@@ -253,7 +285,7 @@
                     limpar(faixa).appendChild(h('span', { text: 'Saque de ' + valor + ' concluído.' }));
                 } else {
                     faixa.className = 'saque-status erro';
-                    limpar(faixa).appendChild(h('span', { text: 'Saque de ' + valor + ' falhou. O valor foi devolvido ao seu saldo.' }));
+                    limpar(faixa).appendChild(h('span', { text: 'Saque de ' + valor + ' falhou. O valor e a tarifa foram devolvidos ao seu saldo.' }));
                 }
                 faixa.appendChild(h('button', { type: 'button', class: 'saque-fechar', 'aria-label': 'Fechar aviso',
                     text: '×', onClick: function() { faixa.remove(); } }));
@@ -266,6 +298,34 @@
         }
         checar();
     }
+
+    // Validação e máscara da chave conforme o tipo
+    function validarChave(tipo, chave) {
+        if (tipo === 'CPF' && !Valid.cpf(chave)) return 'CPF inválido.';
+        if (tipo === 'CNPJ' && !Valid.cnpj(chave)) return 'CNPJ inválido.';
+        if (tipo === 'EMAIL' && !Valid.email(chave)) return 'E-mail inválido.';
+        if (tipo === 'PHONE' && !Valid.telefone(chave)) return 'Telefone inválido (DDD + número).';
+        return '';
+    }
+    function ajustarChave() {
+        var tipo = document.getElementById('saqueTipo').value;
+        var el = document.getElementById('saqueChave');
+        var u = Auth.getUser() || {};
+        el.value = '';
+        el.setAttribute('inputmode', { CPF: 'numeric', CNPJ: 'numeric', PHONE: 'tel', EMAIL: 'email', EVP: 'text' }[tipo]);
+        el.placeholder = { CPF: '000.000.000-00', CNPJ: '00.000.000/0000-00', PHONE: '(00) 00000-0000', EMAIL: 'voce@email.com', EVP: 'Cole a chave aleatória' }[tipo];
+        el.maxLength = { CPF: 14, CNPJ: 18, PHONE: 15, EMAIL: 140, EVP: 140 }[tipo];
+        if (tipo === 'CPF' && u.cpf) el.value = Mask.cpf(u.cpf);
+        if (tipo === 'EMAIL' && u.email) el.value = u.email;
+    }
+    document.getElementById('saqueTipo').addEventListener('change', ajustarChave);
+    document.getElementById('saqueChave').addEventListener('input', function() {
+        var tipo = document.getElementById('saqueTipo').value;
+        var fn = { CPF: Mask.cpf, CNPJ: Mask.cnpj, PHONE: Mask.telefone }[tipo];
+        if (fn) this.value = fn(this.value);
+    });
+    // setTimeout: a máscara de moeda (api.js) atualiza o valor no mesmo evento, depois deste listener
+    document.getElementById('saqueValor').addEventListener('input', function() { setTimeout(atualizarTarifaInfo, 0); });
 
     async function recarregarTudo() {
         await Promise.all([carregarSaldo(), carregarExtrato()]);
@@ -283,7 +343,7 @@
     saldoCentavos = (Auth.getUser() || {}).saldo_centavos || 0;
     renderSaldo();
     recarregarTudo();
-    renderBottomNav('/perfil');
+    renderBottomNav('/carteira');
 </script>
 </body>
 </html>

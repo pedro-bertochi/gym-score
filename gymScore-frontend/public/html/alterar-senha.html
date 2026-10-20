@@ -14,6 +14,7 @@
 </head>
 <body>
     <div class="edit-profile-container">
+        <a class="gs-voltar" href="/perfil">&larr; Voltar</a>
         <h1>Alterar Senha</h1>
         <form id="changePasswordForm">
             <div class="form-group">
@@ -43,7 +44,7 @@
                 </div>
             </div>
             <p id="errorMsg" style="color:#e74c3c;display:none;"></p>
-            <p id="successMsg" style="color:#27ae60;display:none;"></p>
+            <p id="successMsg" style="color:var(--success-text);display:none;"></p>
             <button type="submit">Salvar nova senha</button>
             <button type="button" onclick="window.location.href='/perfil'"
                 style="margin-left:10px;background:#555;">Cancelar</button>
@@ -51,7 +52,7 @@
 
         <div style="margin-top:20px;padding-top:16px;border-top:1px solid #333;">
             <p style="color:#aaa;font-size:0.85em;">Esqueceu sua senha atual?
-                <a href="/esqueci-senha" style="color:#4CAF50;">Recuperar acesso</a>
+                <a href="/esqueci-senha" style="color:var(--success);">Recuperar acesso</a>
             </p>
         </div>
     </div>

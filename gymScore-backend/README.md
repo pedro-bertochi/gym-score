@@ -56,17 +56,16 @@ go run github.com/pressly/goose/v3/cmd/goose@latest -dir database/migrations mys
 
 ## Modelo do desafio
 
-Cada participante **paga a entrada ao entrar** (inclusive o criador, ao criar). Pote = soma das entradas.
+Só a **academia** cria o desafio e designa um **instrutor** vinculado a ela. O **atleta** paga a entrada ao se inscrever (e recebe um ingresso com QR). Pote = soma das entradas.
 
-`aberto` -> `em_andamento` -> `em_votacao` -> `encerrado` (ou `cancelado`)
+`aberto` -> `em_andamento` -> `encerrado` (ou `cancelado`)
 
 | Status | O que acontece |
 |---|---|
-| `aberto` | Inscrições até `vagas`. Criador convida amigos e pode **cancelar** (reembolso integral). Participante não criador pode **sair** (reembolso). |
-| `em_andamento` | Iniciado pelo criador (>= 2 participantes). Participantes fazem **check-ins** (1 por dia, texto/foto/localização opcionais). |
-| `em_votacao` | Aberta pelo criador. Cada participante vota em **outro** participante (1 voto). Quando todos votam, apura sozinho. Criador pode **apurar** antes com metade+1 dos votos, ou após 24h da abertura, ou após `data_encerramento`. |
-| `encerrado` | Mais votado leva o pote; empate divide igualmente (resto de centavos para o menor id); sem votos todos recebem a entrada de volta. |
-| `cancelado` | Entradas reembolsadas. |
+| `aberto` | Inscrições até `vagas` (só atleta; a entrada sai da carteira na hora, 0 = gratuito). O atleta pode **sair** (reembolso). A academia pode **editar** (não altera a entrada com inscritos) e **cancelar** (reembolso integral). Instrutor/academia podem marcar presença no dia do evento. |
+| `em_andamento` | Iniciado pelo instrutor designado ou pela academia dona (>= 1 inscrito; fecha as inscrições). Presença por `codigo_ingresso` (QR) ou `id_usuario`. A academia ainda pode cancelar (estorno a todos). |
+| `encerrado` | O pódio foi lançado: `min(posicoes_podio, presentes)` posições, só presentes, marca obrigatória. O pote é dividido por tabela (1: 100; 2: 70/30; 3: 60/30/10; 4: 50/25/15/10; 5: 40/25/15/12/8), com resto de centavos para o 1º e percentuais renormalizados se houver menos presentes que posições. Prêmios creditados pelo `CarteiraRepository`; pontos: 1º +30, 2º-5º +15, demais presentes +5. |
+| `cancelado` | Entradas reembolsadas (ledger `estorno_desafio`). |
 
 Garantias: transições com `UPDATE ... WHERE status = <esperado>` + `SELECT ... FOR UPDATE` na linha do desafio (entradas concorrentes não estouram as vagas nem cobram duas vezes).
 
@@ -79,14 +78,14 @@ Prefixo `/api`. Resposta: `{"success":true,"message":"...","data":...}` ou `{"su
 | Auth | `POST /login`, `POST /logout`, `POST /usuarios` (cadastro), `POST /auth/esqueci-senha`, `POST /auth/redefinir-senha` |
 | Usuários | `GET /usuarios/me`, `GET /usuarios/busca?q=`, `GET /usuarios/:id` (público), `PATCH /usuarios/perfil`, `PATCH /usuarios/senha` |
 | Amigos | `GET /amigos`, `POST /amigos/{adicionar,aceitar,recusar,remover}` (`{id_amigo}`) |
-| Desafios | `GET /desafios`, `GET /desafios/meus`, `GET /desafios/:id`, `POST /desafios`, `POST /desafios/:id/{entrar,sair,cancelar,iniciar,abrir-votacao,votar,apurar,convidar}`, `GET\|POST /desafios/:id/checkins` |
+| Desafios | `GET /desafios` (feed), `GET /desafios/meus`, `GET /desafios/categorias`, `GET /desafios/:id`, `POST /desafios` (só academia), `PATCH /desafios/:id`, `POST /desafios/:id/{entrar,sair,cancelar,iniciar,presenca,podio,avaliar,convidar}`, `GET /desafios/:id/{presentes,podio}` |
 | Carteira | `GET /carteira`, `GET /carteira/extrato`, `POST /carteira/saque`, `GET /carteira/saque/:id` |
 | PIX | `POST /pagamento/pix`, `GET /pagamento/pix/:asaas_id`, `POST /pagamento/pix/:asaas_id/simular` (sandbox), `POST /webhooks/asaas` |
 | Notificações | `GET /notificacoes`, `GET /notificacoes/nao-lidas`, `POST /notificacoes/:id/lida`, `POST /notificacoes/lidas` |
 | Ranking | `GET /ranking/amigos?dias=30` |
 | Treinos | `GET\|POST /treinos`, `GET /treinos/radar`, `POST /treinos/{importar,concluir}`, `GET\|DELETE /treinos/:id` |
 
-Fotos de check-in ficam em `UPLOADS_DIR/checkins/` com nome aleatório e são servidas em `GET /uploads/checkins/<nome>` (validação por magic bytes; JPG/PNG/WEBP; até 3 MB).
+Fotos de check-in antigas continuam servidas em `GET /uploads/checkins/<nome>` (histórico); o check-in do atleta foi removido no Sprint 6 e não há mais upload.
 
 ## Testes
 
@@ -95,12 +94,12 @@ go build ./... && go vet ./...
 go test ./...                                  # unitários (sem banco)
 ```
 
-Os de integração usam **MySQL 8 real e descartável** (nunca aponte para um banco com dados): recriam o banco `gymscore_it` a cada execução.
+Os de integração usam **MySQL 8 real e descartável** (nunca aponte para um banco com dados): recriam o banco `gymscore_it` (ou o de `TEST_DB_NAME`, para duas execuções simultâneas não se atropelarem) a cada execução.
 
 ```bash
 docker run -d --name gymscore-mysql-test -e MYSQL_ROOT_PASSWORD=testpw -p 3307:3306 mysql:8
 export TEST_DB_DSN='root:testpw@tcp(127.0.0.1:3307)/?parseTime=True&loc=Local'
-go test -tags integration ./...                # inclui concorrência (entradas, débitos, saques, check-ins)
+go test -tags integration ./...                # inclui concorrência (inscrições, débitos, saques, pódio duplicado)
 go test -tags integration -race ./internal/integration/   # mais lento (~5 min)
 docker rm -f gymscore-mysql-test
 ```

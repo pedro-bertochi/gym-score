@@ -38,3 +38,25 @@ type CriarAcademiaRequest struct {
 	Endereco     string `json:"endereco"`
 	Telefone     string `json:"telefone"`
 }
+
+// DashboardAcademiaResponse são os indicadores da PRÓPRIA academia logada (GET /api/academia/dashboard).
+type DashboardAcademiaResponse struct {
+	Academia AcademiaResumo `json:"academia"`
+	// TotalDesafios soma todos os status; DesafiosPorStatus sempre traz as 4 chaves (0 quando vazio).
+	TotalDesafios     int64                   `json:"total_desafios"`
+	DesafiosPorStatus map[StatusDesafio]int64 `json:"desafios_por_status"`
+	// InscritosMes: inscrições feitas no mês corrente em desafios não cancelados da academia.
+	InscritosMes int64 `json:"inscritos_mes"`
+	// PoteEmJogo: soma das entradas dos inscritos em desafios abertos ou em andamento.
+	PoteEmJogoCentavos int64   `json:"pote_em_jogo_centavos"`
+	PoteEmJogo         float64 `json:"pote_em_jogo"`
+	// TaxaPresenca é o percentual (0 a 100, uma casa) de inscritos presentes nos desafios em andamento
+	// e encerrados; 0 quando não há base.
+	TaxaPresenca float64 `json:"taxa_presenca"`
+	// AvaliacaoMedia (0 a 5, duas casas) considera só avaliações dos desafios desta academia.
+	AvaliacaoMedia        float64 `json:"avaliacao_media"`
+	AvaliacoesTotal       int64   `json:"avaliacoes_total"`
+	InstrutoresVinculados int64   `json:"instrutores_vinculados"`
+	// ProximosEventos: até 5 desafios abertos com data_evento futura, do mais próximo ao mais distante.
+	ProximosEventos []DesafioResponse `json:"proximos_eventos"`
+}
